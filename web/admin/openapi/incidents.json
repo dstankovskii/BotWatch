@@ -433,7 +433,8 @@
         "enum": [
           "Unknown",
           "Up",
-          "Down"
+          "Down",
+          "Stale"
         ]
       },
       "CreateChannelRequest": {

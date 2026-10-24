@@ -14,6 +14,7 @@ builder.Services.AddBotWatchDbContext<MonitoringDbContext>(builder.Configuration
 builder.Services.AddRabbitMq(builder.Configuration);
 builder.Services.AddOutboxRelay<MonitoringDbContext>();
 builder.Services.AddHostedService<CheckScheduler>();
+builder.Services.AddHostedService<AccountMetrics>();
 
 builder.Services.AddRabbitConsumer("monitoring", consumer => consumer
     .Handle<AccountQrIssued, AccountQrIssuedHandler>()

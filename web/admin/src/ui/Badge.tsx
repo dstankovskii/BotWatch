@@ -11,6 +11,7 @@ export function Badge({ tone, pulse, children }: { tone: Tone; pulse?: boolean; 
 const statusTone: Record<MonitorStatus, Tone> = {
   Up: 'green',
   Down: 'red',
+  Stale: 'amber',
   Unknown: 'grey',
   Disabled: 'grey',
 }

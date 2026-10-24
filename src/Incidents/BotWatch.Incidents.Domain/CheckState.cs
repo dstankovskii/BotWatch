@@ -6,7 +6,10 @@ public enum CheckStatus
 {
     Unknown,
     Up,
-    Down
+    Down,
+
+    // результатов нет слишком долго: проба молчит, аккаунт отвалился или планировщик стоит
+    Stale
 }
 
 public record CheckOutcome(Guid JobId, bool Success, string? Error, DateTimeOffset FinishedAt);
@@ -15,7 +18,11 @@ public record CheckOutcome(Guid JobId, bool Success, string? Error, DateTimeOffs
 public class CheckState : AggregateRoot
 {
     public const int FailuresToOpenIncident = 2;
+    public const double StaleAfterIntervals = 2.5;
     private const int MaxErrorLength = 1000;
+
+    // у частых HTTP-проверок 2.5 интервала - это минута с небольшим, такую паузу даёт и обычная очередь
+    public static readonly TimeSpan MinStaleAfter = TimeSpan.FromMinutes(3);
 
     public Guid CheckId { get; private set; }
 
@@ -39,6 +46,9 @@ public class CheckState : AggregateRoot
 
     public DateTimeOffset StatusChangedAt { get; private set; }
 
+    // с какого момента ждём результаты: включение проверки или смена интервала
+    public DateTimeOffset WatchedSince { get; private set; }
+
     public Guid? OpenIncidentId { get; private set; }
 
     public Incident? OpenIncident { get; private set; }
@@ -56,7 +66,8 @@ public class CheckState : AggregateRoot
             MonitorName = "",
             CheckName = "",
             Status = CheckStatus.Unknown,
-            StatusChangedAt = now
+            StatusChangedAt = now,
+            WatchedSince = now
         };
     }
 
@@ -64,7 +75,13 @@ public class CheckState : AggregateRoot
     {
         MonitorName = monitorName;
         CheckName = checkName;
-        Interval = interval;
+
+        // планировщик пересчитает время запуска под новый интервал, старый срок ожидания уже не годится
+        if (Interval != interval)
+        {
+            Interval = interval;
+            WatchedSince = now;
+        }
 
         if (Enabled == enabled)
         {
@@ -72,6 +89,7 @@ public class CheckState : AggregateRoot
         }
 
         Enabled = enabled;
+        WatchedSince = now;
         if (!enabled)
         {
             // выключенная проверка не должна висеть в инцидентах, а после включения начинаем с чистого листа
@@ -97,6 +115,11 @@ public class CheckState : AggregateRoot
 
         LastResultAt = outcome.FinishedAt;
 
+        if (Status == CheckStatus.Stale)
+        {
+            Resume(outcome.FinishedAt);
+        }
+
         if (outcome.Success)
         {
             RecordSuccess(outcome.FinishedAt);
@@ -105,6 +128,39 @@ public class CheckState : AggregateRoot
         {
             RecordFailure(outcome.Error, outcome.FinishedAt);
         }
+    }
+
+    public bool IsOverdue(DateTimeOffset now)
+    {
+        if (!Enabled || Status == CheckStatus.Stale || Interval <= TimeSpan.Zero)
+        {
+            return false;
+        }
+
+        var waitingSince = LastResultAt > WatchedSince ? LastResultAt.Value : WatchedSince;
+        var staleAfter = Interval * StaleAfterIntervals;
+
+        return now - waitingSince > (staleAfter > MinStaleAfter ? staleAfter : MinStaleAfter);
+    }
+
+    // инцидент не открываем и не закрываем: про сам бот мы ничего не знаем, сломалось наблюдение за ним
+    public void MarkStale(DateTimeOffset now)
+    {
+        if (!IsOverdue(now))
+        {
+            return;
+        }
+
+        ChangeStatus(CheckStatus.Stale, now);
+        Raise(new CheckStaleEvent(CheckId, MonitorId, MonitorName, CheckName, LastResultAt, now));
+    }
+
+    private void Resume(DateTimeOffset now)
+    {
+        Raise(new CheckResumedEvent(CheckId, MonitorId, MonitorName, CheckName, StatusChangedAt, now));
+
+        // статус, каким он был до тишины, дальше его поправит сам результат
+        ChangeStatus(OpenIncident is not null ? CheckStatus.Down : ConsecutiveFailures == 0 ? CheckStatus.Up : CheckStatus.Unknown, now);
     }
 
     private void RecordSuccess(DateTimeOffset now)

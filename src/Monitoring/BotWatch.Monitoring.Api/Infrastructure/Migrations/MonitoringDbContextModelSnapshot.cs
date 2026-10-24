@@ -277,6 +277,11 @@ namespace BotWatch.Monitoring.Infrastructure.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("routing_key");
 
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("trace_parent");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(200)

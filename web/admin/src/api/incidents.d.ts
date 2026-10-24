@@ -372,7 +372,7 @@ export interface components {
             openIncidentId: null | string;
         };
         /** @enum {unknown} */
-        CheckStatus: "Unknown" | "Up" | "Down";
+        CheckStatus: "Unknown" | "Up" | "Down" | "Stale";
         CreateChannelRequest: {
             name: string;
             botToken: string;

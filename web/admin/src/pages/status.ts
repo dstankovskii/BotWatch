@@ -1,6 +1,7 @@
 import type { CheckState, Monitor, UptimeDay } from '../api/types'
 
-export type MonitorStatus = 'Up' | 'Down' | 'Unknown' | 'Disabled'
+// Stale - проверка давно не присылала результатов, что с ботом, неизвестно
+export type MonitorStatus = 'Up' | 'Down' | 'Stale' | 'Unknown' | 'Disabled'
 
 // статус монитора = худший из его включённых проверок
 export function monitorStatus(monitor: Monitor, states: Map<string, CheckState>): MonitorStatus {
@@ -11,6 +12,7 @@ export function monitorStatus(monitor: Monitor, states: Map<string, CheckState>)
 
   const statuses = enabled.map((x) => states.get(x.id)?.status ?? 'Unknown')
   if (statuses.includes('Down')) return 'Down'
+  if (statuses.includes('Stale')) return 'Stale'
   return statuses.every((x) => x === 'Up') ? 'Up' : 'Unknown'
 }
 

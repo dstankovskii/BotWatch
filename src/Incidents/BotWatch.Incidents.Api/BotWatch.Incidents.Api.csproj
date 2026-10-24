@@ -9,6 +9,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="BotWatch.Incidents.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\BotWatch.Contracts\BotWatch.Contracts.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\BotWatch.Hosting\BotWatch.Hosting.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\BotWatch.Persistence\BotWatch.Persistence.csproj" />

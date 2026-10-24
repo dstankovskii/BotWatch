@@ -32,6 +32,7 @@ public static class HostingExtensions
             }
         });
 
+        builder.AddBotWatchTelemetry();
         builder.Services.AddProblemDetails();
         builder.Services.AddExceptionHandler<DomainExceptionHandler>();
         builder.Services.AddHealthChecks();
@@ -53,6 +54,7 @@ public static class HostingExtensions
 
         app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
         app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
+        app.MapBotWatchMetrics();
 
         return app;
     }

@@ -32,6 +32,7 @@ internal sealed class OutboxRelay<TDbContext>(
                 {
                 }
 
+                await ReportLagAsync(stoppingToken);
                 await CleanupIfNeededAsync(stoppingToken);
             }
             catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
@@ -85,6 +86,21 @@ internal sealed class OutboxRelay<TDbContext>(
         await transaction.CommitAsync(cancellationToken);
 
         return published;
+    }
+
+    // запрос по тому же частичному индексу, что и выборка релея, поэтому дешёвый
+    private async Task ReportLagAsync(CancellationToken cancellationToken)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<TDbContext>();
+
+        var oldest = await dbContext.OutboxMessages
+            .Where(x => x.ProcessedAt == null)
+            .OrderBy(x => x.Position)
+            .Select(x => (DateTimeOffset?)x.OccurredAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        OutboxMetrics.Report(typeof(TDbContext).Name, oldest);
     }
 
     private async Task CleanupIfNeededAsync(CancellationToken cancellationToken)

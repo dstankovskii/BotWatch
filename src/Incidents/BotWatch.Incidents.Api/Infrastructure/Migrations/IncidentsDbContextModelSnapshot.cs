@@ -125,6 +125,12 @@ namespace BotWatch.Incidents.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("status_changed_at");
 
+                    b.Property<DateTimeOffset>("WatchedSince")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("watched_since")
+                        .HasDefaultValueSql("now()");
+
                     b.HasKey("CheckId")
                         .HasName("pk_check_states");
 
@@ -135,6 +141,34 @@ namespace BotWatch.Incidents.Infrastructure.Migrations
                         .HasDatabaseName("ix_check_states_open_incident_id");
 
                     b.ToTable("check_states", (string)null);
+                });
+
+            modelBuilder.Entity("BotWatch.Incidents.Domain.DailyUptime", b =>
+                {
+                    b.Property<Guid>("CheckId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("check_id");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date")
+                        .HasColumnName("day");
+
+                    b.Property<int>("AvgDurationMs")
+                        .HasColumnType("integer")
+                        .HasColumnName("avg_duration_ms");
+
+                    b.Property<int>("Failed")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed");
+
+                    b.Property<int>("Total")
+                        .HasColumnType("integer")
+                        .HasColumnName("total");
+
+                    b.HasKey("CheckId", "Day")
+                        .HasName("pk_daily_uptime");
+
+                    b.ToTable("daily_uptime", (string)null);
                 });
 
             modelBuilder.Entity("BotWatch.Incidents.Domain.Incident", b =>
@@ -302,6 +336,11 @@ namespace BotWatch.Incidents.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("routing_key");
+
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("trace_parent");
 
                     b.Property<string>("Type")
                         .IsRequired()

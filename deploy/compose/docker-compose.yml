@@ -2,11 +2,21 @@ name: botwatch
 
 x-dotnet: &dotnet
   restart: unless-stopped
+  # в aspnet-образе нет curl и wget, поэтому запрос пишем руками через /dev/tcp из bash
+  healthcheck:
+    test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q ' 200 '"]
+    interval: 15s
+    timeout: 5s
+    start_period: 30s
+    retries: 3
   environment: &dotnet-env
     RabbitMq__Host: rabbitmq
     RabbitMq__Username: ${RABBITMQ_USER}
     RabbitMq__Password: ${RABBITMQ_PASSWORD}
     Seq__Url: http://seq:5341
+    # трассы в Seq по OTLP: в одном окне видно и логи, и путь сообщения через брокер
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://seq:5341/ingest/otlp
+    OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
   depends_on: &dotnet-deps
     postgres:
       condition: service_healthy
@@ -69,6 +79,8 @@ services:
         APP: BotWatch.Gateway
     environment:
       Seq__Url: http://seq:5341
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://seq:5341/ingest/otlp
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
       ConnectionStrings__Gateway: Host=postgres;Database=gateway;Username=gateway;Password=${GATEWAY_DB_PASSWORD}
       Services__Monitoring: http://monitoring:8080
       Services__Incidents: http://incidents:8080
@@ -84,6 +96,11 @@ services:
     build:
       context: ../../web/admin
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
 
   monitoring:
     <<: *dotnet
@@ -107,6 +124,7 @@ services:
       <<: *dotnet-env
       ConnectionStrings__Incidents: Host=postgres;Database=incidents;Username=incidents;Password=${INCIDENTS_DB_PASSWORD}
       Encryption__Key: ${ENCRYPTION_KEY}
+      Heartbeat__Url: ${HEARTBEAT_URL:-}
 
   http-probe:
     <<: *dotnet
@@ -137,7 +155,42 @@ services:
       Telegram__Proxy: ${TELEGRAM_PROXY:-}
       Telegram__MtProxyUrl: ${TELEGRAM_MTPROXY_URL:-}
 
+  # метрики и дашборд по желанию: docker compose --profile observability up -d
+  prometheus:
+    image: prom/prometheus:v3.7.3
+    restart: unless-stopped
+    profiles: [observability]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9091:9090"
+
+  grafana:
+    image: grafana/grafana:12.2.1
+    restart: unless-stopped
+    profiles: [observability]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      # открыт только на localhost, смотреть дашборд можно без входа
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/botwatch.json
+    volumes:
+      - ../grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      - prometheus
+
 volumes:
   postgres-data:
   rabbitmq-data:
   seq-data:
+  prometheus-data:
+  grafana-data:

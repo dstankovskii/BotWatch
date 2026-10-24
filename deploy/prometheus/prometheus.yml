@@ -1,0 +1,16 @@
+# метрики сервисов на внутреннем порту 9464, наружу он не публикуется.
+# dns_sd находит все реплики: docker compose up --scale tg-probe=2 появится двумя целями
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: botwatch
+    dns_sd_configs:
+      - names: [gateway, monitoring, incidents, http-probe, tg-probe]
+        type: A
+        port: 9464
+        refresh_interval: 30s
+    relabel_configs:
+      # имя сервиса из DNS-имени, по которому нашли цель
+      - source_labels: [__meta_dns_name]
+        target_label: service

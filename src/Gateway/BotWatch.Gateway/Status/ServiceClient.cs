@@ -47,6 +47,16 @@ public class ServiceClient(HttpClient httpClient, IConfiguration configuration)
 // свои копии DTO, а не ссылки на проекты сервисов: шлюз не должен тянуть их домен
 public record PublicMonitor(Guid Id, string Name, IReadOnlyList<Guid> CheckIds);
 
-public record CheckState(Guid CheckId, StatusLevel Status);
+// статус строкой: у incidents их больше (Stale), а публике хватает трёх.
+// проверка, за которой не удаётся следить, для посетителя - «нет данных»
+public record CheckState(Guid CheckId, string Status)
+{
+    public StatusLevel Level => Status switch
+    {
+        "Up" => StatusLevel.Up,
+        "Down" => StatusLevel.Down,
+        _ => StatusLevel.Unknown
+    };
+}
 
 public record UptimeDay(Guid CheckId, DateOnly Day, long Total, long Failed);

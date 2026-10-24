@@ -16,6 +16,8 @@ public sealed class RabbitConnection(
     private readonly SemaphoreSlim _lock = new(1, 1);
     private IConnection? _connection;
 
+    public bool IsOpen => _connection?.IsOpen == true;
+
     public async Task<IConnection> GetAsync(CancellationToken cancellationToken)
     {
         if (_connection is not null)

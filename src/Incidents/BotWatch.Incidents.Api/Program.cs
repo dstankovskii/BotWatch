@@ -1,5 +1,6 @@
 using BotWatch.Contracts;
 using BotWatch.Hosting;
+using BotWatch.Incidents.Background;
 using BotWatch.Incidents.Endpoints;
 using BotWatch.Incidents.Handlers;
 using BotWatch.Incidents.Infrastructure;
@@ -35,8 +36,24 @@ builder.Services.AddRabbitConsumer("incidents.notifications", consumer =>
     consumer
         .Handle<IncidentOpened, IncidentOpenedHandler>()
         .Handle<IncidentResolved, IncidentResolvedHandler>()
+        .Handle<CheckStale, CheckStaleHandler>()
+        .Handle<CheckResumed, CheckResumedHandler>()
         .UseInbox<IncidentsDbContext>();
 });
+
+builder.Services.AddSingleton<IncidentsMetrics>();
+builder.Services.AddHostedService<StaleDetector>();
+
+builder.Services.Configure<HeartbeatOptions>(builder.Configuration.GetSection(HeartbeatOptions.SectionName));
+builder.Services.AddHttpClient(nameof(Heartbeat), client => client.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddHostedService<Heartbeat>();
+
+builder.Services.Configure<HistoryOptions>(builder.Configuration.GetSection(HistoryOptions.SectionName));
+builder.Services.AddScoped<HistoryRollup>();
+if (builder.Configuration.GetValue($"{HistoryOptions.SectionName}:{nameof(HistoryOptions.RunInBackground)}", true))
+{
+    builder.Services.AddHostedService<HistoryRollupService>();
+}
 
 var app = builder.Build();
 
@@ -45,4 +62,13 @@ app.MapIncidentEndpoints();
 app.MapChannelEndpoints();
 
 await app.MigrateDatabaseAsync<IncidentsDbContext>();
+
+// разовый запуск для Kubernetes CronJob: dotnet BotWatch.Incidents.Api.dll rollup-history
+if (args.Contains("rollup-history"))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    await scope.ServiceProvider.GetRequiredService<HistoryRollup>().RunAsync(CancellationToken.None);
+    return;
+}
+
 await app.RunAsync();

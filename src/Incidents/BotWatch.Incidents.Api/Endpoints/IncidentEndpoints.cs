@@ -20,25 +20,36 @@ public static class IncidentEndpoints
     }
 
     // по дням в UTC: для полосок на статус-странице и графиков в админке.
+    // свёрнутые дни берём из daily_uptime, остальные (сегодня и ещё не свёрнутые) считаем по сырым результатам.
     // колонки в snake_case: naming convention EF действует и на SqlQuery
-    private static Task<List<UptimeDayDto>> GetUptimeAsync(
+    internal static Task<List<UptimeDayDto>> GetUptimeAsync(
         IncidentsDbContext dbContext,
         TimeProvider timeProvider,
         int days = 30,
         CancellationToken cancellationToken = default)
     {
         var since = timeProvider.GetUtcNow().UtcDateTime.Date.AddDays(1 - Math.Clamp(days, 1, MaxUptimeDays));
+        var sinceDay = DateOnly.FromDateTime(since);
 
         return dbContext.Database
             .SqlQuery<UptimeDayDto>($"""
-                SELECT check_id,
-                       (finished_at AT TIME ZONE 'UTC')::date AS day,
-                       count(*) AS total,
-                       count(*) FILTER (WHERE NOT success) AS failed,
-                       avg(duration_ms)::int AS avg_duration_ms
-                FROM check_results
-                WHERE finished_at >= {new DateTimeOffset(since, TimeSpan.Zero)}
-                GROUP BY 1, 2
+                WITH live AS (
+                    SELECT check_id,
+                           (finished_at AT TIME ZONE 'UTC')::date AS day,
+                           count(*) AS total,
+                           count(*) FILTER (WHERE NOT success) AS failed,
+                           avg(duration_ms)::int AS avg_duration_ms
+                    FROM check_results
+                    WHERE finished_at >= {new DateTimeOffset(since, TimeSpan.Zero)}
+                    GROUP BY 1, 2
+                )
+                SELECT check_id, day, total::bigint AS total, failed::bigint AS failed, avg_duration_ms
+                FROM daily_uptime
+                WHERE day >= {sinceDay}
+                UNION ALL
+                SELECT live.check_id, live.day, live.total, live.failed, live.avg_duration_ms
+                FROM live
+                WHERE NOT EXISTS (SELECT 1 FROM daily_uptime d WHERE d.check_id = live.check_id AND d.day = live.day)
                 ORDER BY 1, 2
                 """)
             .ToListAsync(cancellationToken);

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
@@ -101,6 +102,11 @@ public sealed class RabbitConsumer : IAsyncDisposable
     {
         Interlocked.Increment(ref _inFlight);
         var context = CreateContext(delivery);
+        using var activity = MessagingTelemetry.StartProcess(
+            delivery.BasicProperties.Headers,
+            context.Queue,
+            context.Type,
+            context.MessageId);
         try
         {
             if (!_definition.Handlers.TryGetValue(context.Type, out var invoker))
@@ -118,6 +124,7 @@ public sealed class RabbitConsumer : IAsyncDisposable
         }
         catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             await RetryOrDeadLetterAsync(delivery, context, ex);
         }
         catch (OperationCanceledException)

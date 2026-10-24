@@ -1,0 +1,10 @@
+apiVersion: 1
+
+providers:
+  - name: BotWatch
+    folder: BotWatch
+    type: file
+    # дашборд живёт в репозитории, правки в интерфейсе после перезапуска пропадут
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

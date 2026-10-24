@@ -29,6 +29,9 @@ public class OutboxMessage
 
     public string? LastError { get; private set; }
 
+    // контекст трассировки на момент создания: релей опубликует позже и вне запроса
+    public string? TraceParent { get; private set; }
+
     private OutboxMessage()
     {
     }
@@ -42,11 +45,12 @@ public class OutboxMessage
             Exchange = message.Exchange,
             RoutingKey = message.RoutingKey,
             Payload = message.Payload,
-            OccurredAt = message.OccurredAt
+            OccurredAt = message.OccurredAt,
+            TraceParent = message.TraceParent
         };
     }
 
-    public OutgoingMessage ToOutgoing() => new(Id, Type, Payload, Exchange, RoutingKey, OccurredAt);
+    public OutgoingMessage ToOutgoing() => new(Id, Type, Payload, Exchange, RoutingKey, OccurredAt, TraceParent);
 
     public void MarkProcessed(DateTimeOffset now)
     {
@@ -74,6 +78,7 @@ internal class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessa
         builder.Property(x => x.Exchange).HasMaxLength(200);
         builder.Property(x => x.RoutingKey).HasMaxLength(200);
         builder.Property(x => x.Payload).HasColumnType("jsonb");
+        builder.Property(x => x.TraceParent).HasMaxLength(100);
 
         // релей всегда ищет неопубликованные, опубликованных со временем станет большинство
         builder.HasIndex(x => x.Position).HasFilter("processed_at is null");

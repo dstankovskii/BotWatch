@@ -9,7 +9,8 @@ public record OutgoingMessage(
     string Payload,
     string Exchange,
     string RoutingKey,
-    DateTimeOffset OccurredAt)
+    DateTimeOffset OccurredAt,
+    string? TraceParent = null)
 {
     // routingKey - когда ключ зависит от данных, например задание конкретному аккаунту
     public static OutgoingMessage Create<TMessage>(
@@ -24,7 +25,8 @@ public record OutgoingMessage(
             JsonSerializer.Serialize(message, MessageJson.Options),
             TMessage.Route.Exchange,
             routingKey ?? TMessage.Route.RoutingKey,
-            occurredAt);
+            occurredAt,
+            MessagingTelemetry.CurrentTraceParent());
     }
 }
 

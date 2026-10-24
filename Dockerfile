@@ -8,9 +8,10 @@ RUN dotnet publish "$PROJECT" -c Release -o /app --no-self-contained
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 ARG APP
-ENV APP_DLL=${APP}.dll
+ENV APP_DLL=${APP}.dll \
+    ASPNETCORE_HTTP_PORTS="8080;9464"
 WORKDIR /app
 COPY --from=build /app .
 USER $APP_UID
 EXPOSE 8080
-ENTRYPOINT ["sh", "-c", "exec dotnet \"$APP_DLL\""]
+ENTRYPOINT ["sh", "-c", "exec dotnet \"$APP_DLL\" \"$@\"", "--"]

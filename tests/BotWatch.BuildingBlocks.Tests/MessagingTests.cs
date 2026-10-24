@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using BotWatch.Messaging;
 using BotWatch.Messaging.Consuming;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,39 @@ public class MessagingTests(InfrastructureFixture fixture)
             var outbox = await db.OutboxMessages.Where(x => x.Type == nameof(TestMessage)).ToListAsync();
             outbox.Single(x => x.Payload.Contains(note.Id.ToString())).ProcessedAt.ShouldNotBeNull();
         });
+
+        await host.StopAsync();
+    }
+
+    [Fact]
+    public async Task Trace_continues_through_outbox_and_broker_to_handler()
+    {
+        using var source = new ActivitySource("BotWatch.Tests");
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = x => x.Name is "BotWatch.Tests" or MessagingTelemetry.SourceName,
+            Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        using var host = await StartHostAsync();
+        var note = Note.Create();
+        ActivityTraceId traceId;
+
+        // сохраняем внутри «запроса», а публикует релей позже и уже вне его
+        using (var request = source.StartActivity("request")!)
+        {
+            traceId = request.TraceId;
+            await WithDbContextAsync(host, async db =>
+            {
+                db.Notes.Add(note);
+                await db.SaveChangesAsync();
+            });
+        }
+
+        await TestHost.WaitUntilAsync(() => CountHandledAsync(host, note.Id, expected: 1));
+
+        host.Services.GetRequiredService<HandlerState>().TraceIds[note.Id].ShouldBe(traceId);
 
         await host.StopAsync();
     }

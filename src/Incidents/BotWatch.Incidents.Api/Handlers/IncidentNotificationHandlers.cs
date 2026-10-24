@@ -29,6 +29,28 @@ public sealed class IncidentResolvedHandler(
     }
 }
 
+public sealed class CheckStaleHandler(
+    IncidentsDbContext dbContext,
+    TelegramNotifier notifier,
+    ILogger<CheckStaleHandler> logger) : IMessageHandler<CheckStale>
+{
+    public Task HandleAsync(CheckStale message, MessageContext context, CancellationToken cancellationToken)
+    {
+        return dbContext.NotifyAllAsync(notifier, AlertMessages.Stale(message), logger, cancellationToken);
+    }
+}
+
+public sealed class CheckResumedHandler(
+    IncidentsDbContext dbContext,
+    TelegramNotifier notifier,
+    ILogger<CheckResumedHandler> logger) : IMessageHandler<CheckResumed>
+{
+    public Task HandleAsync(CheckResumed message, MessageContext context, CancellationToken cancellationToken)
+    {
+        return dbContext.NotifyAllAsync(notifier, AlertMessages.Resumed(message), logger, cancellationToken);
+    }
+}
+
 internal static class NotificationExtensions
 {
     public static async Task NotifyAllAsync(

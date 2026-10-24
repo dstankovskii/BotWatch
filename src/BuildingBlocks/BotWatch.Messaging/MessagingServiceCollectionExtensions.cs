@@ -9,10 +9,17 @@ public static class MessagingServiceCollectionExtensions
 {
     public static IServiceCollection AddRabbitMq(this IServiceCollection services, IConfiguration configuration)
     {
+        // повторный вызов зарегистрировал бы health check с тем же именем, а это ошибка при старте
+        if (services.Any(x => x.ServiceType == typeof(RabbitConnection)))
+        {
+            return services;
+        }
+
         services.Configure<RabbitMqOptions>(configuration.GetSection(RabbitMqOptions.SectionName));
         services.AddSingleton<RabbitConnection>();
         services.AddSingleton<RabbitPublisher>();
         services.AddSingleton<RabbitConsumerFactory>();
+        services.AddHealthChecks().AddCheck<RabbitHealthCheck>("rabbitmq", tags: ["ready"]);
         return services;
     }
 

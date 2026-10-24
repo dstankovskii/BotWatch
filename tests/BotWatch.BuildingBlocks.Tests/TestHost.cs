@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using BotWatch.Domain;
 using BotWatch.Messaging;
 using BotWatch.Messaging.Consuming;
@@ -109,6 +110,9 @@ public class HandlerState
 
     // сколько первых попыток для заметки должно упасть
     public ConcurrentDictionary<Guid, int> FailFirst { get; } = new();
+
+    // в какой трассе обработчик видел сообщение
+    public ConcurrentDictionary<Guid, ActivityTraceId?> TraceIds { get; } = new();
 }
 
 public class TestMessageHandler(TestDbContext dbContext, HandlerState state) : IMessageHandler<TestMessage>
@@ -116,6 +120,7 @@ public class TestMessageHandler(TestDbContext dbContext, HandlerState state) : I
     public async Task HandleAsync(TestMessage message, MessageContext context, CancellationToken cancellationToken)
     {
         var attempt = state.Attempts.AddOrUpdate(message.NoteId, 1, (_, value) => value + 1);
+        state.TraceIds[message.NoteId] = Activity.Current?.TraceId;
 
         dbContext.HandledNotes.Add(new HandledNote { MessageId = context.MessageId, NoteId = message.NoteId });
         await dbContext.SaveChangesAsync(cancellationToken);

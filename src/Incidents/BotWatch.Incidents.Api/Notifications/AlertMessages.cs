@@ -17,6 +17,22 @@ public static class AlertMessages
         return $"🟢 <b>{Escape(incident.MonitorName)}</b> · {Escape(incident.CheckName)} снова работает\nЛежал {FormatDuration(downtime)}";
     }
 
+    public static string Stale(CheckStale check)
+    {
+        var last = check.LastResultAt is null
+            ? "результатов ещё не было"
+            : $"последний результат {FormatDuration(check.DetectedAt - check.LastResultAt.Value)} назад";
+
+        return $"⚪ <b>{Escape(check.MonitorName)}</b> · {Escape(check.CheckName)}: проверка не выполняется, {last}\n"
+            + "Проба молчит или аккаунт отвалился, состояние бота неизвестно";
+    }
+
+    public static string Resumed(CheckResumed check)
+    {
+        return $"🔵 <b>{Escape(check.MonitorName)}</b> · {Escape(check.CheckName)}: проверка снова выполняется\n"
+            + $"Молчала {FormatDuration(check.ResumedAt - check.StaleSince)}";
+    }
+
     public static string Test() => "✅ BotWatch: тестовое сообщение, канал настроен";
 
     private static string FormatDuration(TimeSpan duration)

@@ -21,6 +21,8 @@ public class IncidentsDbContext(
 
     public DbSet<NotificationChannel> NotificationChannels => Set<NotificationChannel>();
 
+    public DbSet<DailyUptime> DailyUptime => Set<DailyUptime>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -37,6 +39,7 @@ public class IncidentsDbContext(
             builder.HasOne(x => x.OpenIncident).WithMany().HasForeignKey(x => x.OpenIncidentId).OnDelete(DeleteBehavior.SetNull);
             builder.HasIndex(x => x.MonitorId);
             builder.Ignore(x => x.DomainEvents);
+            builder.Property(x => x.WatchedSince).HasDefaultValueSql("now()");
         });
 
         modelBuilder.Entity<Incident>(builder =>
@@ -54,6 +57,12 @@ public class IncidentsDbContext(
             builder.Property(x => x.Error).HasMaxLength(1000);
             builder.Property(x => x.Probe).HasMaxLength(50);
             builder.HasIndex(x => new { x.CheckId, x.FinishedAt });
+        });
+
+        modelBuilder.Entity<DailyUptime>(builder =>
+        {
+            builder.ToTable("daily_uptime");
+            builder.HasKey(x => new { x.CheckId, x.Day });
         });
 
         modelBuilder.Entity<NotificationChannel>(builder =>
@@ -75,6 +84,12 @@ public class IncidentsDbContext(
                 occurredAt),
             IncidentResolvedEvent e => OutgoingMessage.Create(
                 new IncidentResolved(e.IncidentId, e.CheckId, e.MonitorId, e.MonitorName, e.CheckName, e.OpenedAt, e.ResolvedAt),
+                occurredAt),
+            CheckStaleEvent e => OutgoingMessage.Create(
+                new CheckStale(e.CheckId, e.MonitorId, e.MonitorName, e.CheckName, e.LastResultAt, e.DetectedAt),
+                occurredAt),
+            CheckResumedEvent e => OutgoingMessage.Create(
+                new CheckResumed(e.CheckId, e.MonitorId, e.MonitorName, e.CheckName, e.StaleSince, e.ResumedAt),
                 occurredAt),
             _ => null
         };

@@ -154,6 +154,9 @@ public class TelegramAccount : AggregateRoot
         return null;
     }
 
+    // окно сбрасывается лениво, при следующем резерве. для отображения старое окно считаем пустым
+    public int BudgetUsedAt(DateTimeOffset now) => now >= BudgetWindowStart + BudgetWindow ? 0 : BudgetUsed;
+
     // сколько сообщений в час в среднем отправят проверки с такими расписаниями
     public static double HourlyLoad(IEnumerable<(int Messages, TimeSpan Interval)> checks)
     {

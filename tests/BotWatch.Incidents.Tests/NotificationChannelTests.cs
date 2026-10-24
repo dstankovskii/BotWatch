@@ -5,14 +5,14 @@ namespace BotWatch.Incidents.Tests;
 
 public class NotificationChannelTests
 {
-    private const string Token = "123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw0";
+    private const string Token = "12345:fake-token-for-tests-only-not-real";
 
     [Fact]
     public void Token_is_masked()
     {
         var channel = NotificationChannel.Create("Me", Token, "12345", DateTimeOffset.UtcNow);
 
-        channel.MaskedToken.ShouldBe("123456789:***");
+        channel.MaskedToken.ShouldBe("12345:***");
     }
 
     [Fact]

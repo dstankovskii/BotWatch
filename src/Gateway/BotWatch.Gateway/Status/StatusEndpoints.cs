@@ -91,8 +91,8 @@ public static class StatusEndpoints
             .OfType<CheckState>()
             .ToList();
 
-        var status = checkStates.Any(x => x.Status == StatusLevel.Down) ? StatusLevel.Down
-            : checkStates.Count > 0 && checkStates.All(x => x.Status == StatusLevel.Up) ? StatusLevel.Up
+        var status = checkStates.Any(x => x.Level == StatusLevel.Down) ? StatusLevel.Down
+            : checkStates.Count > 0 && checkStates.All(x => x.Level == StatusLevel.Up) ? StatusLevel.Up
             : StatusLevel.Unknown;
 
         // день монитора = сумма по всем его проверкам

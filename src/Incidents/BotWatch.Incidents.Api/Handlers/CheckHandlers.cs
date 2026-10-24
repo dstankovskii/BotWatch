@@ -39,12 +39,14 @@ public sealed class CheckRemovedHandler(IncidentsDbContext dbContext, TimeProvid
 
         // история без проверки никому не нужна, инциденты оставляем - по ним видно, что было
         await dbContext.CheckResults.Where(x => x.CheckId == message.CheckId).ExecuteDeleteAsync(cancellationToken);
+        await dbContext.DailyUptime.Where(x => x.CheckId == message.CheckId).ExecuteDeleteAsync(cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
 
 public sealed class CheckCompletedHandler(
     IncidentsDbContext dbContext,
+    IncidentsMetrics metrics,
     ILogger<CheckCompletedHandler> logger) : IMessageHandler<CheckCompleted>
 {
     public async Task HandleAsync(CheckCompleted message, MessageContext context, CancellationToken cancellationToken)
@@ -71,6 +73,7 @@ public sealed class CheckCompletedHandler(
         state.Record(new CheckOutcome(message.JobId, message.Success, message.Error, message.FinishedAt));
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        metrics.RecordResult(message.Probe, message.Success, message.DurationMs);
 
         if (state.Status != previousStatus)
         {

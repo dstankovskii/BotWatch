@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using RabbitMQ.Client;
 
@@ -11,6 +12,8 @@ public sealed class RabbitPublisher(RabbitConnection connection) : IAsyncDisposa
 
     public async Task PublishAsync(OutgoingMessage message, CancellationToken cancellationToken)
     {
+        using var activity = MessagingTelemetry.StartPublish(message);
+
         await _lock.WaitAsync(cancellationToken);
         try
         {
@@ -25,6 +28,13 @@ public sealed class RabbitPublisher(RabbitConnection connection) : IAsyncDisposa
                 Headers = new Dictionary<string, object?>()
             };
 
+            // трассировка выключена - всё равно передаём исходный контекст дальше, он ничего не стоит
+            var traceParent = activity?.Id ?? message.TraceParent;
+            if (traceParent is not null)
+            {
+                properties.Headers[MessagingTelemetry.TraceParentHeader] = traceParent;
+            }
+
             // confirms включены - вызов вернётся после ack брокера, nack прилетит исключением
             await channel.BasicPublishAsync(
                 message.Exchange,
@@ -33,6 +43,11 @@ public sealed class RabbitPublisher(RabbitConnection connection) : IAsyncDisposa
                 properties,
                 Encoding.UTF8.GetBytes(message.Payload),
                 cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            throw;
         }
         finally
         {
