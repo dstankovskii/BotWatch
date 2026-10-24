@@ -93,6 +93,10 @@ namespace BotWatch.Monitoring.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("enabled");
 
+                    b.Property<bool>("IsPublic")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_public");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(20)

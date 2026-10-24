@@ -89,7 +89,7 @@ public class MonitorTests
     {
         var monitor = CreateSite();
         monitor.AddHttpCheck("Health", Minute, Settings(), Now);
-        monitor.Update("Site", "https://example.com", enabled: false);
+        monitor.Update("Site", "https://example.com", enabled: false, isPublic: false);
 
         monitor.ScheduleDueChecks(Now).ShouldBe(0);
     }
@@ -101,7 +101,7 @@ public class MonitorTests
         monitor.AddHttpCheck("Health", Minute, Settings(), Now);
         monitor.ClearDomainEvents();
 
-        monitor.Update("Site", "https://example.com", enabled: false);
+        monitor.Update("Site", "https://example.com", enabled: false, isPublic: false);
 
         monitor.DomainEvents.OfType<CheckConfigured>().Single().Enabled.ShouldBeFalse();
     }

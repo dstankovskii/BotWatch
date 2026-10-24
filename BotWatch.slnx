@@ -8,6 +8,9 @@
     <Project Path="src/BuildingBlocks/BotWatch.Messaging/BotWatch.Messaging.csproj" />
     <Project Path="src/BuildingBlocks/BotWatch.Persistence/BotWatch.Persistence.csproj" />
   </Folder>
+  <Folder Name="/src/Gateway/">
+    <Project Path="src/Gateway/BotWatch.Gateway/BotWatch.Gateway.csproj" />
+  </Folder>
   <Folder Name="/src/Incidents/">
     <Project Path="src/Incidents/BotWatch.Incidents.Api/BotWatch.Incidents.Api.csproj" />
     <Project Path="src/Incidents/BotWatch.Incidents.Domain/BotWatch.Incidents.Domain.csproj" />
@@ -22,6 +25,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/BotWatch.BuildingBlocks.Tests/BotWatch.BuildingBlocks.Tests.csproj" />
+    <Project Path="tests/BotWatch.Gateway.Tests/BotWatch.Gateway.Tests.csproj" />
     <Project Path="tests/BotWatch.Incidents.Tests/BotWatch.Incidents.Tests.csproj" />
     <Project Path="tests/BotWatch.Monitoring.Tests/BotWatch.Monitoring.Tests.csproj" />
     <Project Path="tests/BotWatch.Probe.Telegram.Tests/BotWatch.Probe.Telegram.Tests.csproj" />

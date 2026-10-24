@@ -13,6 +13,7 @@ public static class MonitorEndpoints
         var monitors = app.MapGroup("/api/monitors");
 
         monitors.MapGet("/", GetMonitorsAsync);
+        monitors.MapGet("/public", GetPublicMonitorsAsync);
         monitors.MapGet("/{id:guid}", GetMonitorAsync);
         monitors.MapPost("/", CreateMonitorAsync);
         monitors.MapPut("/{id:guid}", UpdateMonitorAsync);
@@ -36,6 +37,16 @@ public static class MonitorEndpoints
             .ToListAsync(cancellationToken);
 
         return [.. monitors.Select(MonitorDto.From)];
+    }
+
+    private static Task<List<PublicMonitorDto>> GetPublicMonitorsAsync(MonitoringDbContext dbContext, CancellationToken cancellationToken)
+    {
+        return dbContext.Monitors
+            .AsNoTracking()
+            .Where(x => x.IsPublic && x.Enabled)
+            .OrderBy(x => x.Name)
+            .Select(x => new PublicMonitorDto(x.Id, x.Name, x.Checks.Where(c => c.Enabled).Select(c => c.Id).ToList()))
+            .ToListAsync(cancellationToken);
     }
 
     private static async Task<Results<Ok<MonitorDto>, NotFound>> GetMonitorAsync(
@@ -74,7 +85,7 @@ public static class MonitorEndpoints
         return ChangeMonitorAsync(
             dbContext,
             id,
-            monitor => monitor.Update(request.Name, request.Target, request.Enabled),
+            monitor => monitor.Update(request.Name, request.Target, request.Enabled, request.IsPublic),
             cancellationToken);
     }
 
@@ -168,7 +179,6 @@ public static class MonitorEndpoints
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
-        var scenario = TelegramScenario.Create(request.Steps);
         var interval = TimeSpan.FromSeconds(request.IntervalSeconds);
 
         return ChangeMonitorAsync(
@@ -176,6 +186,9 @@ public static class MonitorEndpoints
             id,
             async monitor =>
             {
+                var previous = monitor.Checks.SingleOrDefault(x => x.Id == checkId)?.Scenario;
+                var scenario = TelegramScenario.Create(request.Steps, previous);
+
                 if (request.Enabled)
                 {
                     await EnsureAccountBudgetAsync(dbContext, request.AccountId, checkId, scenario, interval, cancellationToken);

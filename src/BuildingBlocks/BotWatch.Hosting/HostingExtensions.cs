@@ -35,9 +35,12 @@ public static class HostingExtensions
         builder.Services.AddProblemDetails();
         builder.Services.AddExceptionHandler<DomainExceptionHandler>();
         builder.Services.AddHealthChecks();
+        builder.Services.AddOpenApi();
         builder.Services.ConfigureHttpJsonOptions(options =>
         {
             options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            // по умолчанию веб-настройки принимают числа строкой, и в openapi int превращается в integer | string
+            options.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
         });
 
         return builder;
@@ -46,6 +49,7 @@ public static class HostingExtensions
     public static WebApplication UseBotWatchDefaults(this WebApplication app)
     {
         app.UseExceptionHandler();
+        app.MapOpenApi();
 
         app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
         app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });

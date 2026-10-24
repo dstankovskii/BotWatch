@@ -26,6 +26,9 @@ public partial class Monitor : AggregateRoot
 
     public bool Enabled { get; private set; }
 
+    // показывать на публичной статус-странице
+    public bool IsPublic { get; private set; }
+
     public DateTimeOffset CreatedAt { get; private set; }
 
     public IReadOnlyList<Check> Checks => _checks;
@@ -50,11 +53,12 @@ public partial class Monitor : AggregateRoot
         return monitor;
     }
 
-    public void Update(string name, string target, bool enabled)
+    public void Update(string name, string target, bool enabled, bool isPublic)
     {
         Name = NormalizeName(name);
         Target = NormalizeTarget(Kind, target);
         Enabled = enabled;
+        IsPublic = isPublic;
 
         foreach (var check in _checks)
         {

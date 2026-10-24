@@ -64,8 +64,15 @@ public record TelegramScenario
         return new TelegramScenario { Steps = steps };
     }
 
-    public static TelegramScenario Create(IReadOnlyList<ScenarioStep>? steps)
+    // previous - текущая версия при редактировании: голосовые наружу не отдаются,
+    // поэтому SendVoice без файла означает "оставить тот, что был" (n-й такой шаг берёт n-й старый файл)
+    public static TelegramScenario Create(IReadOnlyList<ScenarioStep>? steps, TelegramScenario? previous = null)
     {
+        if (steps is not null && previous is not null)
+        {
+            steps = KeepVoices(steps, previous);
+        }
+
         if (steps is null || steps.Count == 0)
         {
             throw new DomainException("Scenario must have at least one step");
@@ -97,6 +104,34 @@ public record TelegramScenario
         }
 
         return new TelegramScenario { Steps = normalized };
+    }
+
+    private static List<ScenarioStep> KeepVoices(IReadOnlyList<ScenarioStep> steps, TelegramScenario previous)
+    {
+        var oldVoices = previous.Steps
+            .Where(x => x.Kind == StepKind.SendVoice && x.Voice is not null)
+            .Select(x => x.Voice!)
+            .ToList();
+
+        var next = 0;
+        var result = new List<ScenarioStep>(steps.Count);
+        foreach (var step in steps)
+        {
+            if (step.Kind == StepKind.SendVoice && step.Voice is null && next < oldVoices.Count)
+            {
+                result.Add(step with { Voice = oldVoices[next++] });
+                continue;
+            }
+
+            if (step.Kind == StepKind.SendVoice)
+            {
+                next++;
+            }
+
+            result.Add(step);
+        }
+
+        return result;
     }
 
     private static ScenarioStep NormalizeStep(ScenarioStep step, int number, bool hasReplyBefore)

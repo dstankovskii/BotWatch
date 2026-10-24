@@ -52,6 +52,12 @@ public static class PersistenceExtensions
 
     public static async Task MigrateDatabaseAsync<TDbContext>(this IHost host) where TDbContext : DbContext
     {
+        // выключается в контрактных тестах openapi: там базы нет
+        if (!host.Services.GetRequiredService<IConfiguration>().GetValue("Database:MigrateOnStartup", true))
+        {
+            return;
+        }
+
         // EF берёт блокировку на время миграции, поэтому несколько реплик при старте друг другу не мешают
         await using var scope = host.Services.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<TDbContext>().Database.MigrateAsync();

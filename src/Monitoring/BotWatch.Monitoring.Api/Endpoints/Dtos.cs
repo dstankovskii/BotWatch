@@ -4,7 +4,7 @@ namespace BotWatch.Monitoring.Endpoints;
 
 public record CreateMonitorRequest(string Name, MonitorKind Kind, string Target);
 
-public record UpdateMonitorRequest(string Name, string Target, bool Enabled);
+public record UpdateMonitorRequest(string Name, string Target, bool Enabled, bool IsPublic);
 
 public record HttpCheckRequest(
     string Name,
@@ -38,6 +38,7 @@ public record MonitorDto(
     MonitorKind Kind,
     string Target,
     bool Enabled,
+    bool IsPublic,
     DateTimeOffset CreatedAt,
     IReadOnlyList<CheckDto> Checks)
 {
@@ -49,10 +50,14 @@ public record MonitorDto(
             monitor.Kind,
             monitor.Target,
             monitor.Enabled,
+            monitor.IsPublic,
             monitor.CreatedAt,
             [.. monitor.Checks.Select(CheckDto.From)]);
     }
 }
+
+// для статус-страницы: только то, что можно показать без логина
+public record PublicMonitorDto(Guid Id, string Name, IReadOnlyList<Guid> CheckIds);
 
 public record CheckDto(
     Guid Id,

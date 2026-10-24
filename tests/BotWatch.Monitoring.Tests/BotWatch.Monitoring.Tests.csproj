@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Shouldly" />
     <PackageReference Include="xunit" />
@@ -19,6 +20,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Monitoring\BotWatch.Monitoring.Domain\BotWatch.Monitoring.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Monitoring\BotWatch.Monitoring.Api\BotWatch.Monitoring.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\*.cs" LinkBase="Shared" />
   </ItemGroup>
 
 </Project>

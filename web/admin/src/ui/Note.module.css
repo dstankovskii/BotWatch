@@ -1,0 +1,22 @@
+.note {
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-sm);
+  background: var(--grey-soft);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.bad {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.warn {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.good {
+  background: var(--green-soft);
+  color: var(--green);
+}

@@ -17,7 +17,6 @@ public static class AccountEndpoints
         accounts.MapPost("/", CreateAccountAsync);
         accounts.MapPost("/{id:guid}/login", RequestLoginAsync);
         accounts.MapDelete("/{id:guid}", DeleteAccountAsync);
-        accounts.MapGet("/{id:guid}/qr", GetQrPage);
         accounts.MapGet("/{id:guid}/qr.png", GetQrImageAsync);
 
         return app;
@@ -102,23 +101,6 @@ public static class AccountEndpoints
         await transaction.CommitAsync(cancellationToken);
 
         return TypedResults.NoContent();
-    }
-
-    // временная страница, пока нет админки: QR перевыпускается, поэтому страница обновляется сама
-    private static ContentHttpResult GetQrPage(Guid id)
-    {
-        var html = $$"""
-            <!doctype html>
-            <html>
-            <head><meta charset="utf-8"><meta http-equiv="refresh" content="10"><title>Telegram login</title></head>
-            <body style="font-family: sans-serif; text-align: center">
-            <p>Telegram: Settings → Devices → Link Desktop Device</p>
-            <img src="/api/accounts/{{id}}/qr.png" alt="QR code is not ready yet">
-            </body>
-            </html>
-            """;
-
-        return TypedResults.Content(html, "text/html");
     }
 
     private static async Task<Results<FileContentHttpResult, NotFound>> GetQrImageAsync(

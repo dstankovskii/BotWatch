@@ -1,0 +1,30 @@
+.bars {
+  display: flex;
+  gap: 2px;
+  height: 32px;
+  align-items: stretch;
+}
+
+.bar {
+  flex: 1;
+  min-width: 2px;
+  border-radius: 2px;
+  background: var(--grey-soft);
+  transition: opacity var(--t-fast) var(--ease);
+}
+
+.bar:hover {
+  opacity: 0.7;
+}
+
+.bar[data-tone='good'] {
+  background: var(--green);
+}
+
+.bar[data-tone='warn'] {
+  background: var(--amber);
+}
+
+.bar[data-tone='bad'] {
+  background: var(--red);
+}

@@ -1,0 +1,136 @@
+/* токены взяты из дизайн-системы MirroLog и приглушены под инструмент оператора.
+   тема: по умолчанию системная, data-theme на <html> её перебивает */
+
+@font-face {
+  font-family: 'Inter';
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC, U+2122, U+2212;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/inter-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+:root {
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+
+  --fs-2xs: 0.6875rem;
+  --fs-xs: 0.78rem;
+  --fs-sm: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.25rem;
+  --fs-h3: 1.375rem;
+  --fs-h2: 1.875rem;
+  --fs-stat: 2.125rem;
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 40px;
+  --s-7: 64px;
+
+  --hit: 40px;
+
+  --t-fast: 160ms;
+  --t: 320ms;
+  --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
+
+  color-scheme: light;
+  --paper: #ecece9;
+  --surface: #f4f4f2;
+  --card: #fafaf8;
+  --field: #ffffff;
+  --text: #1e1f1c;
+  --text-2: #5e615a;
+  --muted: #7d8078;
+  --hairline: rgba(28, 38, 20, 0.1);
+  --hairline-strong: rgba(28, 38, 20, 0.18);
+
+  --accent: #3f6a2a;
+  --accent-soft: rgba(63, 106, 42, 0.12);
+  --on-accent: #ffffff;
+
+  --green: #3f6a2a;
+  --green-soft: rgba(63, 106, 42, 0.12);
+  --red: #a33a2a;
+  --red-soft: rgba(163, 58, 42, 0.12);
+  --amber: #9a6a12;
+  --amber-soft: rgba(154, 106, 18, 0.14);
+  --grey: #8a8d86;
+  --grey-soft: rgba(125, 128, 120, 0.14);
+
+  --shadow: 0 1px 2px rgba(20, 24, 16, 0.06), 0 4px 16px rgba(20, 24, 16, 0.05);
+  --inset: inset 0 1px 2px rgba(20, 24, 16, 0.06);
+  --focus: 0 0 0 3px rgba(63, 106, 42, 0.35);
+}
+
+/* тёмная тема два раза: по системе и по явному выбору. css-переменные иначе не переиспользовать */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --paper: #0c0c0d;
+    --surface: #131314;
+    --card: #19191b;
+    --field: #1f1f22;
+    --text: #ededeb;
+    --text-2: #a3a3a0;
+    --muted: #7c7c79;
+    --hairline: rgba(255, 255, 255, 0.08);
+    --hairline-strong: rgba(255, 255, 255, 0.16);
+    --accent: #8fbf63;
+    --accent-soft: rgba(143, 191, 99, 0.14);
+    --on-accent: #0c0c0d;
+    --green: #8fbf63;
+    --green-soft: rgba(143, 191, 99, 0.14);
+    --red: #e08a78;
+    --red-soft: rgba(224, 138, 120, 0.14);
+    --amber: #e0b35a;
+    --amber-soft: rgba(224, 179, 90, 0.14);
+    --grey: #6c6c69;
+    --grey-soft: rgba(255, 255, 255, 0.06);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.3);
+    --inset: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+    --focus: 0 0 0 3px rgba(143, 191, 99, 0.35);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --paper: #0c0c0d;
+  --surface: #131314;
+  --card: #19191b;
+  --field: #1f1f22;
+  --text: #ededeb;
+  --text-2: #a3a3a0;
+  --muted: #7c7c79;
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.16);
+  --accent: #8fbf63;
+  --accent-soft: rgba(143, 191, 99, 0.14);
+  --on-accent: #0c0c0d;
+  --green: #8fbf63;
+  --green-soft: rgba(143, 191, 99, 0.14);
+  --red: #e08a78;
+  --red-soft: rgba(224, 138, 120, 0.14);
+  --amber: #e0b35a;
+  --amber-soft: rgba(224, 179, 90, 0.14);
+  --grey: #6c6c69;
+  --grey-soft: rgba(255, 255, 255, 0.06);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.3);
+  --inset: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+  --focus: 0 0 0 3px rgba(143, 191, 99, 0.35);
+}

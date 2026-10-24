@@ -50,6 +50,39 @@ public class TelegramCheckTests
     }
 
     [Fact]
+    public void Voice_without_file_keeps_previous_one_when_editing()
+    {
+        byte[] morning = [.. "OggS"u8, 1];
+        byte[] evening = [.. "OggS"u8, 2];
+        var previous = TelegramScenario.Create(
+        [
+            new(StepKind.SendVoice, Voice: morning),
+            Reply(),
+            new(StepKind.SendVoice, Voice: evening),
+            Reply()
+        ]);
+
+        // первый файл оставили, второй заменили новым
+        byte[] fresh = [.. "OggS"u8, 3];
+        var edited = TelegramScenario.Create(
+        [
+            new(StepKind.SendVoice),
+            Reply(),
+            new(StepKind.SendVoice, Voice: fresh),
+            Reply()
+        ], previous);
+
+        edited.Steps[0].Voice.ShouldBe(morning);
+        edited.Steps[2].Voice.ShouldBe(fresh);
+    }
+
+    [Fact]
+    public void Voice_without_file_is_rejected_for_new_scenario()
+    {
+        Should.Throw<DomainException>(() => TelegramScenario.Create([new(StepKind.SendVoice), Reply()]));
+    }
+
+    [Fact]
     public void Voice_must_be_ogg()
     {
         Should.Throw<DomainException>(() => TelegramScenario.Create(

@@ -1,0 +1,23 @@
+.editor {
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.editor :global(.cm-editor) {
+  min-height: 260px;
+  max-height: 460px;
+}
+
+.editor :global(.cm-editor.cm-focused) {
+  outline: none;
+}
+
+.editor:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--focus);
+}
+
+.editor :global(.cm-scroller) {
+  overflow: auto;
+}

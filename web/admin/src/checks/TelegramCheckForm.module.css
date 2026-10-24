@@ -1,0 +1,76 @@
+.editorHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin-bottom: calc(-1 * var(--s-2));
+  font-size: var(--fs-xs);
+}
+
+.attachments {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  font-size: var(--fs-xs);
+}
+
+.attach {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 var(--s-3);
+  border: 1px dashed var(--hairline-strong);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.attach:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.attach input {
+  display: none;
+}
+
+.file {
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+  background: var(--grey-soft);
+}
+
+.load {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.over {
+  color: var(--red);
+  font-weight: 600;
+}
+
+.bar {
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--grey-soft);
+  overflow: hidden;
+}
+
+.bar > div {
+  height: 100%;
+  background: var(--green);
+  transition: width var(--t) var(--ease);
+}
+
+.bar[data-tone='warn'] > div {
+  background: var(--amber);
+}
+
+.bar[data-tone='bad'] > div {
+  background: var(--red);
+}

@@ -7,14 +7,41 @@ namespace BotWatch.Incidents.Endpoints;
 public static class IncidentEndpoints
 {
     private const int MaxResults = 500;
+    private const int MaxUptimeDays = 90;
 
     public static IEndpointRouteBuilder MapIncidentEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/api/states", GetStatesAsync);
         app.MapGet("/api/checks/{checkId:guid}/results", GetResultsAsync);
         app.MapGet("/api/incidents", GetIncidentsAsync);
+        app.MapGet("/api/uptime", GetUptimeAsync);
 
         return app;
+    }
+
+    // по дням в UTC: для полосок на статус-странице и графиков в админке.
+    // колонки в snake_case: naming convention EF действует и на SqlQuery
+    private static Task<List<UptimeDayDto>> GetUptimeAsync(
+        IncidentsDbContext dbContext,
+        TimeProvider timeProvider,
+        int days = 30,
+        CancellationToken cancellationToken = default)
+    {
+        var since = timeProvider.GetUtcNow().UtcDateTime.Date.AddDays(1 - Math.Clamp(days, 1, MaxUptimeDays));
+
+        return dbContext.Database
+            .SqlQuery<UptimeDayDto>($"""
+                SELECT check_id,
+                       (finished_at AT TIME ZONE 'UTC')::date AS day,
+                       count(*) AS total,
+                       count(*) FILTER (WHERE NOT success) AS failed,
+                       avg(duration_ms)::int AS avg_duration_ms
+                FROM check_results
+                WHERE finished_at >= {new DateTimeOffset(since, TimeSpan.Zero)}
+                GROUP BY 1, 2
+                ORDER BY 1, 2
+                """)
+            .ToListAsync(cancellationToken);
     }
 
     private static Task<List<CheckStateDto>> GetStatesAsync(IncidentsDbContext dbContext, CancellationToken cancellationToken)
@@ -92,6 +119,8 @@ public record CheckResultDto(
     string Probe,
     DateTimeOffset StartedAt,
     DateTimeOffset FinishedAt);
+
+public record UptimeDayDto(Guid CheckId, DateOnly Day, long Total, long Failed, int AvgDurationMs);
 
 public record IncidentDto(
     Guid Id,

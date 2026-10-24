@@ -59,6 +59,32 @@ services:
     ports:
       - "127.0.0.1:5380:80"
 
+  # единственный вход снаружи: логин, /api/* в сервисы, админка и статус-страница
+  gateway:
+    <<: *dotnet
+    build:
+      context: ../..
+      args:
+        PROJECT: src/Gateway/BotWatch.Gateway
+        APP: BotWatch.Gateway
+    environment:
+      Seq__Url: http://seq:5341
+      ConnectionStrings__Gateway: Host=postgres;Database=gateway;Username=gateway;Password=${GATEWAY_DB_PASSWORD}
+      Services__Monitoring: http://monitoring:8080
+      Services__Incidents: http://incidents:8080
+      Services__Admin: http://admin:8080
+      Gateway__BehindProxy: ${BEHIND_PROXY:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${BOTWATCH_PORT:-8080}:8080"
+
+  admin:
+    build:
+      context: ../../web/admin
+    restart: unless-stopped
+
   monitoring:
     <<: *dotnet
     build:
@@ -69,8 +95,6 @@ services:
     environment:
       <<: *dotnet-env
       ConnectionStrings__Monitoring: Host=postgres;Database=monitoring;Username=monitoring;Password=${MONITORING_DB_PASSWORD}
-    ports:
-      - "127.0.0.1:8081:8080"
 
   incidents:
     <<: *dotnet
@@ -83,8 +107,6 @@ services:
       <<: *dotnet-env
       ConnectionStrings__Incidents: Host=postgres;Database=incidents;Username=incidents;Password=${INCIDENTS_DB_PASSWORD}
       Encryption__Key: ${ENCRYPTION_KEY}
-    ports:
-      - "127.0.0.1:8082:8080"
 
   http-probe:
     <<: *dotnet
@@ -97,6 +119,7 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  # аккаунтами делится через Lease, поэтому реплик может быть несколько: docker compose up --scale tg-probe=2
   tg-probe:
     <<: *dotnet
     build:
@@ -108,7 +131,8 @@ services:
       <<: *dotnet-env
       ConnectionStrings__TgProbe: Host=postgres;Database=tgprobe;Username=tgprobe;Password=${TGPROBE_DB_PASSWORD}
       Encryption__Key: ${ENCRYPTION_KEY}
-      Telegram__ApiId: ${TELEGRAM_API_ID}
+      # 0 вместо пустой строки: тогда проба упадёт с понятным "ApiId is not configured", а не на разборе числа
+      Telegram__ApiId: ${TELEGRAM_API_ID:-0}
       Telegram__ApiHash: ${TELEGRAM_API_HASH}
       Telegram__Proxy: ${TELEGRAM_PROXY:-}
       Telegram__MtProxyUrl: ${TELEGRAM_MTPROXY_URL:-}
