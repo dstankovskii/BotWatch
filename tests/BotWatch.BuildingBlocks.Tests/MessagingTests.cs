@@ -93,6 +93,53 @@ public class MessagingTests(InfrastructureFixture fixture)
         await host.StopAsync();
     }
 
+    [Fact]
+    public async Task Runtime_consumer_reads_its_routing_key_until_disposed()
+    {
+        using var host = await StartHostAsync();
+        var factory = host.Services.GetRequiredService<RabbitConsumerFactory>();
+        var publisher = host.Services.GetRequiredService<RabbitPublisher>();
+        var queue = $"{_queue}.runtime";
+        var routingKey = $"test.runtime.{Guid.NewGuid():N}";
+
+        var consumer = await factory.StartAsync(
+            queue,
+            x => x.Handle<TestMessage, TestMessageHandler>(routingKey),
+            CancellationToken.None);
+
+        var first = Guid.NewGuid();
+        await publisher.PublishAsync(
+            OutgoingMessage.Create(new TestMessage(first), DateTimeOffset.UtcNow, routingKey: routingKey),
+            CancellationToken.None);
+
+        await TestHost.WaitUntilAsync(() => CountHandledAsync(host, first, expected: 1));
+
+        // остановленный потребитель не читает, сообщение ждёт в очереди
+        await consumer.DisposeAsync();
+
+        var second = Guid.NewGuid();
+        await publisher.PublishAsync(
+            OutgoingMessage.Create(new TestMessage(second), DateTimeOffset.UtcNow, routingKey: routingKey),
+            CancellationToken.None);
+
+        var connection = await host.Services.GetRequiredService<RabbitConnection>().GetAsync(CancellationToken.None);
+        await using (var channel = await connection.CreateChannelAsync())
+        {
+            await TestHost.WaitUntilAsync(async () => await channel.MessageCountAsync(queue) == 1);
+        }
+
+        GetAttempts(host, second).ShouldBe(0);
+
+        await factory.DeleteQueueAsync(queue, CancellationToken.None);
+
+        await using (var channel = await connection.CreateChannelAsync())
+        {
+            await Should.ThrowAsync<OperationInterruptedException>(() => channel.MessageCountAsync(queue));
+        }
+
+        await host.StopAsync();
+    }
+
     private async Task<IHost> StartHostAsync()
     {
         var host = TestHost.Build(fixture, _queue, _ => { });

@@ -28,6 +28,10 @@ namespace BotWatch.Monitoring.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
                     b.Property<bool>("Enabled")
                         .HasColumnType("boolean")
                         .HasColumnName("enabled");
@@ -54,8 +58,16 @@ namespace BotWatch.Monitoring.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("next_run_at");
 
+                    b.Property<string>("Scenario")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("scenario");
+
                     b.HasKey("Id")
                         .HasName("pk_checks");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_checks_account_id")
+                        .HasFilter("account_id is not null");
 
                     b.HasIndex("MonitorId")
                         .HasDatabaseName("ix_checks_monitor_id");
@@ -103,6 +115,69 @@ namespace BotWatch.Monitoring.Infrastructure.Migrations
                         .HasName("pk_monitors");
 
                     b.ToTable("monitors", (string)null);
+                });
+
+            modelBuilder.Entity("BotWatch.Monitoring.Domain.TelegramAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("BudgetUsed")
+                        .HasColumnType("integer")
+                        .HasColumnName("budget_used");
+
+                    b.Property<DateTimeOffset>("BudgetWindowStart")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("budget_window_start");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("display_name");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("last_error");
+
+                    b.Property<string>("LoginUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("login_url");
+
+                    b.Property<DateTimeOffset?>("LoginUrlIssuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("login_url_issued_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TelegramName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("telegram_name");
+
+                    b.Property<long?>("TelegramUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("telegram_user_id");
+
+                    b.Property<DateTimeOffset?>("ThrottledUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("throttled_until");
+
+                    b.HasKey("Id")
+                        .HasName("pk_telegram_accounts");
+
+                    b.ToTable("telegram_accounts", (string)null);
                 });
 
             modelBuilder.Entity("BotWatch.Persistence.Inbox.InboxMessage", b =>

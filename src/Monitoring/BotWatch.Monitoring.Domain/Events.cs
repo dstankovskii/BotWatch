@@ -20,3 +20,17 @@ public record HttpCheckDue(
     HttpCheckSettings Settings,
     DateTimeOffset RequestedAt,
     DateTimeOffset ExpiresAt) : IDomainEvent;
+
+public record TelegramCheckDue(
+    Guid JobId,
+    Guid CheckId,
+    Guid MonitorId,
+    Guid AccountId,
+    string BotUsername,
+    TelegramScenario Scenario,
+    DateTimeOffset RequestedAt,
+    DateTimeOffset ExpiresAt) : IDomainEvent;
+
+public record AccountLoginRequired(Guid AccountId, string DisplayName) : IDomainEvent;
+
+public record AccountRemoved(Guid AccountId) : IDomainEvent;

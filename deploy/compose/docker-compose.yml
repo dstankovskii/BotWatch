@@ -97,6 +97,22 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  tg-probe:
+    <<: *dotnet
+    build:
+      context: ../..
+      args:
+        PROJECT: src/Probes/BotWatch.Probe.Telegram
+        APP: BotWatch.Probe.Telegram
+    environment:
+      <<: *dotnet-env
+      ConnectionStrings__TgProbe: Host=postgres;Database=tgprobe;Username=tgprobe;Password=${TGPROBE_DB_PASSWORD}
+      Encryption__Key: ${ENCRYPTION_KEY}
+      Telegram__ApiId: ${TELEGRAM_API_ID}
+      Telegram__ApiHash: ${TELEGRAM_API_HASH}
+      Telegram__Proxy: ${TELEGRAM_PROXY:-}
+      Telegram__MtProxyUrl: ${TELEGRAM_MTPROXY_URL:-}
+
 volumes:
   postgres-data:
   rabbitmq-data:

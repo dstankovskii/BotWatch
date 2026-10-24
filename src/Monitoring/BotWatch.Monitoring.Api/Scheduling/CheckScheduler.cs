@@ -1,3 +1,4 @@
+using BotWatch.Monitoring.Domain;
 using BotWatch.Monitoring.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
@@ -56,7 +57,8 @@ internal sealed class CheckScheduler(
         var ids = monitors.Select(x => x.Id).ToList();
         await dbContext.Checks.Where(x => ids.Contains(x.MonitorId)).LoadAsync(cancellationToken);
 
-        var jobs = monitors.Sum(monitor => monitor.ScheduleDueChecks(now));
+        var accounts = await LockAccountsAsync(dbContext, monitors, now, cancellationToken);
+        var jobs = monitors.Sum(monitor => monitor.ScheduleDueChecks(now, accounts));
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -64,5 +66,33 @@ internal sealed class CheckScheduler(
         logger.LogDebug("Scheduled {Jobs} checks for {Monitors} monitors", jobs, monitors.Count);
 
         return monitors.Count;
+    }
+
+    // бюджет аккаунта общий для мониторов, которые разбирают разные реплики, поэтому строку аккаунта блокируем.
+    // порядок блокировок везде один: сначала монитор, потом аккаунт - так не будет взаимных блокировок
+    private static async Task<Dictionary<Guid, TelegramAccount>> LockAccountsAsync(
+        MonitoringDbContext dbContext,
+        List<Monitor> monitors,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var accountIds = monitors
+            .SelectMany(x => x.Checks)
+            .Where(x => x.AccountId is not null && x.IsDueAt(now))
+            .Select(x => x.AccountId!.Value)
+            .Distinct()
+            .Order()
+            .ToArray();
+
+        if (accountIds.Length == 0)
+        {
+            return [];
+        }
+
+        var accounts = await dbContext.TelegramAccounts
+            .FromSql($"select * from telegram_accounts where id = any({accountIds}) order by id for update")
+            .ToListAsync(cancellationToken);
+
+        return accounts.ToDictionary(x => x.Id);
     }
 }

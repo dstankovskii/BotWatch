@@ -18,4 +18,15 @@ public static class MonitorQueries
             .Include(x => x.Checks)
             .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
+
+    // бюджет аккаунта меняют API, планировщик и обработчики событий пробы. вызывать внутри транзакции
+    public static Task<TelegramAccount?> GetAccountForUpdateAsync(
+        this MonitoringDbContext dbContext,
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        return dbContext.TelegramAccounts
+            .FromSql($"select * from telegram_accounts where id = {id} for update")
+            .SingleOrDefaultAsync(cancellationToken);
+    }
 }

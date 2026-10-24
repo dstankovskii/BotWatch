@@ -22,6 +22,16 @@ public record HttpCheckRequest(
     }
 }
 
+// Voice в шаге - ogg в base64
+public record TelegramCheckRequest(
+    string Name,
+    int IntervalSeconds,
+    Guid AccountId,
+    IReadOnlyList<ScenarioStep> Steps,
+    bool Enabled = true);
+
+public record CreateAccountRequest(string DisplayName);
+
 public record MonitorDto(
     Guid Id,
     string Name,
@@ -51,7 +61,8 @@ public record CheckDto(
     bool Enabled,
     DateTimeOffset NextRunAt,
     DateTimeOffset? LastScheduledAt,
-    HttpCheckDto? Http)
+    HttpCheckDto? Http,
+    TelegramCheckDto? Telegram)
 {
     public static CheckDto From(Check check)
     {
@@ -62,7 +73,63 @@ public record CheckDto(
             check.Enabled,
             check.NextRunAt,
             check.LastScheduledAt,
-            check.Http is null ? null : HttpCheckDto.From(check.Http));
+            check.Http is null ? null : HttpCheckDto.From(check.Http),
+            check.Scenario is null ? null : TelegramCheckDto.From(check.AccountId!.Value, check.Scenario));
+    }
+}
+
+public record TelegramCheckDto(Guid AccountId, int MessagesPerRun, IReadOnlyList<StepDto> Steps)
+{
+    public static TelegramCheckDto From(Guid accountId, TelegramScenario scenario)
+    {
+        return new TelegramCheckDto(accountId, scenario.MessagesPerRun, [.. scenario.Steps.Select(StepDto.From)]);
+    }
+}
+
+// сам файл голосового в списке не отдаём, только размер: он до мегабайта
+public record StepDto(
+    StepKind Kind,
+    string? Text,
+    IReadOnlyList<string>? Phrases,
+    int? VoiceBytes,
+    int? TimeoutSeconds,
+    ReplyCondition? Condition)
+{
+    public static StepDto From(ScenarioStep step)
+    {
+        return new StepDto(step.Kind, step.Text, step.Phrases, step.Voice?.Length, step.TimeoutSeconds, step.Condition);
+    }
+}
+
+public record AccountDto(
+    Guid Id,
+    string DisplayName,
+    AccountStatus Status,
+    string? TelegramName,
+    string? LastError,
+    DateTimeOffset? ThrottledUntil,
+    bool QrReady,
+    int ChecksCount,
+    double MessagesPerHour,
+    int MessagesPerHourLimit,
+    DateTimeOffset CreatedAt)
+{
+    public static AccountDto From(TelegramAccount account, IReadOnlyCollection<Check> checks)
+    {
+        return new AccountDto(
+            account.Id,
+            account.DisplayName,
+            account.Status,
+            account.TelegramName,
+            account.LastError,
+            account.ThrottledUntil,
+            account.LoginUrl is not null,
+            checks.Count,
+            Math.Round(TelegramAccount.HourlyLoad(checks
+                .Where(x => x.Enabled)
+                .Select(x => (x.Scenario!.MessagesPerRun, x.Interval))), 1),
+            TelegramAccount.MaxMessagesPerHour,
+            account.CreatedAt);
     }
 }
 

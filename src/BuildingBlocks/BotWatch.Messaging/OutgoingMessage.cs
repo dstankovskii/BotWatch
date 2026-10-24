@@ -11,17 +11,19 @@ public record OutgoingMessage(
     string RoutingKey,
     DateTimeOffset OccurredAt)
 {
+    // routingKey - когда ключ зависит от данных, например задание конкретному аккаунту
     public static OutgoingMessage Create<TMessage>(
         TMessage message,
         DateTimeOffset occurredAt,
-        Guid? messageId = null) where TMessage : IIntegrationMessage
+        Guid? messageId = null,
+        string? routingKey = null) where TMessage : IIntegrationMessage
     {
         return new OutgoingMessage(
             messageId ?? Guid.CreateVersion7(),
             typeof(TMessage).Name,
             JsonSerializer.Serialize(message, MessageJson.Options),
             TMessage.Route.Exchange,
-            TMessage.Route.RoutingKey,
+            routingKey ?? TMessage.Route.RoutingKey,
             occurredAt);
     }
 }

@@ -1,3 +1,4 @@
+using BotWatch.Domain;
 using BotWatch.Monitoring.Domain;
 using BotWatch.Monitoring.Infrastructure;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -19,6 +20,8 @@ public static class MonitorEndpoints
 
         monitors.MapPost("/{id:guid}/checks/http", AddHttpCheckAsync);
         monitors.MapPut("/{id:guid}/checks/http/{checkId:guid}", UpdateHttpCheckAsync);
+        monitors.MapPost("/{id:guid}/checks/telegram", AddTelegramCheckAsync);
+        monitors.MapPut("/{id:guid}/checks/telegram/{checkId:guid}", UpdateTelegramCheckAsync);
         monitors.MapDelete("/{id:guid}/checks/{checkId:guid}", DeleteCheckAsync);
 
         return app;
@@ -136,6 +139,85 @@ public static class MonitorEndpoints
             cancellationToken);
     }
 
+    private static Task<Results<Ok<MonitorDto>, NotFound>> AddTelegramCheckAsync(
+        Guid id,
+        TelegramCheckRequest request,
+        MonitoringDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var scenario = TelegramScenario.Create(request.Steps);
+        var interval = TimeSpan.FromSeconds(request.IntervalSeconds);
+
+        return ChangeMonitorAsync(
+            dbContext,
+            id,
+            async monitor =>
+            {
+                await EnsureAccountBudgetAsync(dbContext, request.AccountId, null, scenario, interval, cancellationToken);
+                monitor.AddTelegramCheck(request.Name, interval, request.AccountId, scenario, timeProvider.GetUtcNow());
+            },
+            cancellationToken);
+    }
+
+    private static Task<Results<Ok<MonitorDto>, NotFound>> UpdateTelegramCheckAsync(
+        Guid id,
+        Guid checkId,
+        TelegramCheckRequest request,
+        MonitoringDbContext dbContext,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var scenario = TelegramScenario.Create(request.Steps);
+        var interval = TimeSpan.FromSeconds(request.IntervalSeconds);
+
+        return ChangeMonitorAsync(
+            dbContext,
+            id,
+            async monitor =>
+            {
+                if (request.Enabled)
+                {
+                    await EnsureAccountBudgetAsync(dbContext, request.AccountId, checkId, scenario, interval, cancellationToken);
+                }
+
+                monitor.UpdateTelegramCheck(
+                    checkId,
+                    request.Name,
+                    interval,
+                    request.AccountId,
+                    scenario,
+                    request.Enabled,
+                    timeProvider.GetUtcNow());
+            },
+            cancellationToken);
+    }
+
+    // бюджет общий на все проверки аккаунта, поэтому считаем по всем мониторам.
+    // строку аккаунта блокируем, чтобы два параллельных сохранения не влезли в бюджет вдвоём
+    private static async Task EnsureAccountBudgetAsync(
+        MonitoringDbContext dbContext,
+        Guid accountId,
+        Guid? exceptCheckId,
+        TelegramScenario scenario,
+        TimeSpan interval,
+        CancellationToken cancellationToken)
+    {
+        if (await dbContext.GetAccountForUpdateAsync(accountId, cancellationToken) is null)
+        {
+            throw new DomainException($"Telegram account {accountId} not found");
+        }
+
+        var others = await dbContext.Checks
+            .AsNoTracking()
+            .Where(x => x.AccountId == accountId && x.Enabled && x.Id != exceptCheckId)
+            .ToListAsync(cancellationToken);
+
+        TelegramAccount.EnsureFitsBudget(others
+            .Select(x => (x.Scenario!.MessagesPerRun, x.Interval))
+            .Append((scenario.MessagesPerRun, interval)));
+    }
+
     private static Task<Results<Ok<MonitorDto>, NotFound>> DeleteCheckAsync(
         Guid id,
         Guid checkId,
@@ -145,10 +227,27 @@ public static class MonitorEndpoints
         return ChangeMonitorAsync(dbContext, id, monitor => monitor.RemoveCheck(checkId), cancellationToken);
     }
 
-    private static async Task<Results<Ok<MonitorDto>, NotFound>> ChangeMonitorAsync(
+    private static Task<Results<Ok<MonitorDto>, NotFound>> ChangeMonitorAsync(
         MonitoringDbContext dbContext,
         Guid id,
         Action<Monitor> change,
+        CancellationToken cancellationToken)
+    {
+        return ChangeMonitorAsync(
+            dbContext,
+            id,
+            monitor =>
+            {
+                change(monitor);
+                return Task.CompletedTask;
+            },
+            cancellationToken);
+    }
+
+    private static async Task<Results<Ok<MonitorDto>, NotFound>> ChangeMonitorAsync(
+        MonitoringDbContext dbContext,
+        Guid id,
+        Func<Monitor, Task> change,
         CancellationToken cancellationToken)
     {
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
@@ -159,7 +258,7 @@ public static class MonitorEndpoints
             return TypedResults.NotFound();
         }
 
-        change(monitor);
+        await change(monitor);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

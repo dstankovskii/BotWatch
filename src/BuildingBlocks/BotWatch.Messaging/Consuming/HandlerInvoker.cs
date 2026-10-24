@@ -25,7 +25,8 @@ internal sealed class HandlerInvoker<TMessage, THandler> : IHandlerInvoker
         var message = JsonSerializer.Deserialize<TMessage>(body.Span, MessageJson.Options)
             ?? throw new InvalidOperationException($"Empty payload for {typeof(TMessage).Name}");
 
-        var handler = services.GetRequiredService<THandler>();
+        // у потребителей, созданных на лету, обработчик в контейнере не зарегистрирован
+        var handler = ActivatorUtilities.GetServiceOrCreateInstance<THandler>(services);
         return handler.HandleAsync(message, context, cancellationToken);
     }
 }

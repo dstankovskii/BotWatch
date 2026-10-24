@@ -88,6 +88,39 @@ public partial class Monitor : AggregateRoot
         RaiseCheckConfigured(check);
     }
 
+    // бюджет аккаунта проверяет вызывающий код (TelegramAccount.EnsureFitsBudget): ему нужны проверки всех мониторов
+    public Check AddTelegramCheck(
+        string name,
+        TimeSpan interval,
+        Guid accountId,
+        TelegramScenario scenario,
+        DateTimeOffset now)
+    {
+        EnsureKind(MonitorKind.TelegramBot);
+
+        var check = Check.CreateTelegram(Id, NormalizeName(name), interval, accountId, scenario, now);
+        _checks.Add(check);
+        RaiseCheckConfigured(check);
+
+        return check;
+    }
+
+    public void UpdateTelegramCheck(
+        Guid checkId,
+        string name,
+        TimeSpan interval,
+        Guid accountId,
+        TelegramScenario scenario,
+        bool enabled,
+        DateTimeOffset now)
+    {
+        EnsureKind(MonitorKind.TelegramBot);
+
+        var check = GetCheck(checkId);
+        check.UpdateTelegram(NormalizeName(name), interval, accountId, scenario, enabled, now);
+        RaiseCheckConfigured(check);
+    }
+
     public void RemoveCheck(Guid checkId)
     {
         var check = GetCheck(checkId);
@@ -104,7 +137,8 @@ public partial class Monitor : AggregateRoot
         }
     }
 
-    public int ScheduleDueChecks(DateTimeOffset now)
+    // accounts нужен только Telegram-мониторам: аккаунты должны быть загружены и заблокированы вызывающим
+    public int ScheduleDueChecks(DateTimeOffset now, IReadOnlyDictionary<Guid, TelegramAccount>? accounts = null)
     {
         if (!Enabled)
         {
@@ -114,8 +148,15 @@ public partial class Monitor : AggregateRoot
         var scheduled = 0;
         foreach (var check in _checks.Where(x => x.IsDueAt(now)))
         {
-            ScheduleHttp(check, now);
-            scheduled++;
+            if (Kind == MonitorKind.Http)
+            {
+                ScheduleHttp(check, now);
+                scheduled++;
+            }
+            else if (TryScheduleTelegram(check, now, accounts))
+            {
+                scheduled++;
+            }
         }
 
         return scheduled;
@@ -132,6 +173,42 @@ public partial class Monitor : AggregateRoot
             check.Http,
             now,
             ExpiresAt: now + check.Interval));
+    }
+
+    private bool TryScheduleTelegram(Check check, DateTimeOffset now, IReadOnlyDictionary<Guid, TelegramAccount>? accounts)
+    {
+        if (accounts is null)
+        {
+            throw new InvalidOperationException("Telegram checks need accounts to be scheduled");
+        }
+
+        var accountId = check.AccountId!.Value;
+        if (!accounts.TryGetValue(accountId, out var account))
+        {
+            // удалить используемый аккаунт API не даёт, так что сюда попасть не должны
+            check.Postpone(now + check.Interval);
+            return false;
+        }
+
+        var retryAt = account.TryReserve(check.Scenario!.MessagesPerRun, now);
+        if (retryAt is not null)
+        {
+            check.Postpone(retryAt.Value);
+            return false;
+        }
+
+        var jobId = check.Schedule(now);
+        Raise(new TelegramCheckDue(
+            jobId,
+            check.Id,
+            Id,
+            accountId,
+            Target,
+            check.Scenario,
+            now,
+            ExpiresAt: now + check.Interval));
+
+        return true;
     }
 
     private Check GetCheck(Guid checkId)

@@ -12,6 +12,7 @@ public static class MessagingServiceCollectionExtensions
         services.Configure<RabbitMqOptions>(configuration.GetSection(RabbitMqOptions.SectionName));
         services.AddSingleton<RabbitConnection>();
         services.AddSingleton<RabbitPublisher>();
+        services.AddSingleton<RabbitConsumerFactory>();
         return services;
     }
 

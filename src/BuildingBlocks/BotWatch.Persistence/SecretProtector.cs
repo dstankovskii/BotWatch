@@ -60,4 +60,9 @@ public sealed class SecretProtector
             value => Protect(Encoding.UTF8.GetBytes(value)),
             data => Encoding.UTF8.GetString(Unprotect(data)));
     }
+
+    public ValueConverter<byte[], byte[]> BytesConverter()
+    {
+        return new ValueConverter<byte[], byte[]>(value => Protect(value), data => Unprotect(data));
+    }
 }

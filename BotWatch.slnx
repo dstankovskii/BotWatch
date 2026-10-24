@@ -18,10 +18,12 @@
   </Folder>
   <Folder Name="/src/Probes/">
     <Project Path="src/Probes/BotWatch.Probe.Http/BotWatch.Probe.Http.csproj" />
+    <Project Path="src/Probes/BotWatch.Probe.Telegram/BotWatch.Probe.Telegram.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/BotWatch.BuildingBlocks.Tests/BotWatch.BuildingBlocks.Tests.csproj" />
     <Project Path="tests/BotWatch.Incidents.Tests/BotWatch.Incidents.Tests.csproj" />
     <Project Path="tests/BotWatch.Monitoring.Tests/BotWatch.Monitoring.Tests.csproj" />
+    <Project Path="tests/BotWatch.Probe.Telegram.Tests/BotWatch.Probe.Telegram.Tests.csproj" />
   </Folder>
 </Solution>

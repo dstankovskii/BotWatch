@@ -3,7 +3,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace BotWatch.Messaging.Consuming;
 
-public sealed class ConsumerBuilder(IServiceCollection services, string queue)
+// services == null, когда потребитель создаётся на лету через RabbitConsumerFactory:
+// контейнер уже собран, обработчики создаются через ActivatorUtilities
+public sealed class ConsumerBuilder(IServiceCollection? services, string queue)
 {
     public string Queue { get; } = queue;
 
@@ -22,19 +24,19 @@ public sealed class ConsumerBuilder(IServiceCollection services, string queue)
 
     internal List<Type> Filters { get; } = [];
 
-    public ConsumerBuilder Handle<TMessage, THandler>()
+    public ConsumerBuilder Handle<TMessage, THandler>(string? routingKey = null)
         where TMessage : IIntegrationMessage
         where THandler : class, IMessageHandler<TMessage>
     {
-        services.TryAddScoped<THandler>();
+        services?.TryAddScoped<THandler>();
         Handlers[typeof(TMessage).Name] = new HandlerInvoker<TMessage, THandler>();
-        Bindings.Add(TMessage.Route);
+        Bindings.Add(routingKey is null ? TMessage.Route : TMessage.Route with { RoutingKey = routingKey });
         return this;
     }
 
     public ConsumerBuilder UseFilter<TFilter>() where TFilter : class, IConsumeFilter
     {
-        services.TryAddScoped<TFilter>();
+        services?.TryAddScoped<TFilter>();
         Filters.Add(typeof(TFilter));
         return this;
     }

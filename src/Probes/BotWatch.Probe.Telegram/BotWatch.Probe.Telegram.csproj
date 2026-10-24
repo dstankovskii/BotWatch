@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>BotWatch.Probe.Telegram</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <PackageReference Include="WTelegramClient" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="BotWatch.Probe.Telegram.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BotWatch.Contracts\BotWatch.Contracts.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\BotWatch.Hosting\BotWatch.Hosting.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\BotWatch.Persistence\BotWatch.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>
