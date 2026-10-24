@@ -1,0 +1,95 @@
+# userbot-проба. сессии аккаунтов лежат зашифрованными в базе tgprobe, на диск под ничего не пишет,
+# поэтому это обычный Deployment. аккаунты делятся между репликами через Lease в той же базе:
+# каждым аккаунтом занимается ровно одна реплика, иначе Telegram убьёт сессию (AUTH_KEY_DUPLICATED).
+# реплик столько, сколько нужно на активные аккаунты (по 10 на реплику) - это считает KEDA, см. 50-keda.yaml.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tg-probe
+  namespace: botwatch
+  labels:
+    app.kubernetes.io/name: tg-probe
+    app.kubernetes.io/part-of: botwatch
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tg-probe
+  # при обновлении новый под стартует раньше, чем погаснет старый. сессию это не ломает:
+  # новый не возьмёт аккаунт, пока старый держит Lease, а старый при остановке отпускает его сразу
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tg-probe
+        app.kubernetes.io/part-of: botwatch
+    spec:
+      automountServiceAccountToken: false
+      # успеть выйти из диалогов и отпустить аренды до SIGKILL
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: tg-probe
+          image: ghcr.io/OWNER/botwatch-tg-probe:latest
+          envFrom:
+            - configMapRef: { name: botwatch-config }
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: TGPROBE_DB_PASSWORD }
+            - name: ConnectionStrings__TgProbe
+              value: Host=postgres;Database=tgprobe;Username=tgprobe;Password=$(DB_PASSWORD)
+            - name: RabbitMq__Username
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: RABBITMQ_USER }
+            - name: RabbitMq__Password
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: RABBITMQ_PASSWORD }
+            - name: Encryption__Key
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: ENCRYPTION_KEY }
+            - name: Telegram__ApiId
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: TELEGRAM_API_ID }
+            - name: Telegram__ApiHash
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: TELEGRAM_API_HASH }
+            - name: Telegram__Proxy
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: TELEGRAM_PROXY }
+            - name: Telegram__MtProxyUrl
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: TELEGRAM_MTPROXY_URL }
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: metrics
+              containerPort: 9464
+          startupProbe:
+            httpGet: { path: /health/live, port: http }
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: { path: /health/live, port: http }
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /health/ready, port: http }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 384Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

@@ -480,3 +480,10 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# ������� ��� kubectl create secret --from-env-file
+deploy/k8s/secrets.env
+
+# личные учебные материалы
+docs/k8s-manual.md
+deploy/k8s/exercises/

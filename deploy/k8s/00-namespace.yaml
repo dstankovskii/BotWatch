@@ -1,0 +1,11 @@
+# всё приложение живёт в одном namespace: удалить целиком - kubectl delete namespace botwatch
+# (PVC удалятся вместе с ним, а с ними и данные)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: botwatch
+  labels:
+    # pod security admission: запрещает привилегированные поды, root по умолчанию и т.п.
+    # warn, а не enforce: образы postgres и rabbitmq стартуют от root и сами понижают права
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted

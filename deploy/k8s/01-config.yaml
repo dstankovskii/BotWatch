@@ -1,0 +1,12 @@
+# общие несекретные настройки .NET-сервисов, подключаются через envFrom.
+# после изменения ConfigMap поды сами не перезапускаются: kubectl -n botwatch rollout restart deployment
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: botwatch-config
+  namespace: botwatch
+data:
+  RabbitMq__Host: rabbitmq
+  Seq__Url: http://seq:5341
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://seq:5341/ingest/otlp
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf

@@ -1,0 +1,74 @@
+# логи и трассы. наружу не выставляется, смотреть через port-forward:
+# kubectl -n botwatch port-forward svc/seq 5380:80  ->  http://localhost:5380
+apiVersion: v1
+kind: Service
+metadata:
+  name: seq
+  namespace: botwatch
+  labels:
+    app.kubernetes.io/name: seq
+    app.kubernetes.io/part-of: botwatch
+spec:
+  selector:
+    app.kubernetes.io/name: seq
+  ports:
+    - name: ui
+      port: 80
+    - name: ingest
+      port: 5341
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: seq
+  namespace: botwatch
+  labels:
+    app.kubernetes.io/name: seq
+    app.kubernetes.io/part-of: botwatch
+spec:
+  serviceName: seq
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: seq
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: seq
+        app.kubernetes.io/part-of: botwatch
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: seq
+          image: datalust/seq:2025
+          env:
+            - name: ACCEPT_EULA
+              value: "Y"
+            # без входа, потому что достучаться можно только через port-forward
+            - name: SEQ_FIRSTRUN_NOAUTHENTICATION
+              value: "true"
+            # Seq по умолчанию занимает под кэш большую часть памяти узла, а не своего лимита
+            - name: SEQ_CACHE_SYSTEMRAMTARGET
+              value: "0.3"
+          ports:
+            - name: ui
+              containerPort: 80
+            - name: ingest
+              containerPort: 5341
+          readinessProbe:
+            httpGet: { path: /health, port: ui }
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 20m, memory: 256Mi }
+            limits: { memory: 768Mi }
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 5Gi

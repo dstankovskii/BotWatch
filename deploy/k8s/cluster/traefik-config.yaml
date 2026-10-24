@@ -1,0 +1,14 @@
+# донастройка Traefik, который k3s ставит сам из Helm-чарта.
+# положить на сервер в /var/lib/rancher/k3s/server/manifests/ или kubectl apply - k3s переустановит чарт с этими values
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    service:
+      spec:
+        # по умолчанию (Cluster) трафик может прийти через другой узел, и Traefik видит его IP вместо клиента.
+        # Local сохраняет настоящий IP - без этого лимит попыток входа в шлюзе считал бы всех одним клиентом
+        externalTrafficPolicy: Local

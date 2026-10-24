@@ -1,0 +1,83 @@
+# автомасштабирование. KEDA ставится в кластер отдельно и сама создаёт HPA
+# для каждого ScaledObject: kubectl -n botwatch get hpa
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: rabbitmq-auth
+  namespace: botwatch
+spec:
+  secretTargetRef:
+    - parameter: host
+      name: botwatch-secrets
+      key: RABBITMQ_URL
+---
+# http-probe: реплик тем больше, чем длиннее очередь заданий.
+# 50 ждущих заданий на реплику - при 16 параллельных проверках это меньше минуты работы
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: http-probe
+  namespace: botwatch
+spec:
+  scaleTargetRef:
+    name: http-probe
+  minReplicaCount: 1
+  maxReplicaCount: 3
+  # очередь опустела - HPA ждёт 5 минут, прежде чем убирать лишние реплики, чтобы не дёргаться туда-обратно.
+  # cooldownPeriod KEDA тут не подходит: он работает только для масштабирования до нуля
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+  triggers:
+    - type: rabbitmq
+      metadata:
+        protocol: amqp
+        queueName: http-probe
+        mode: QueueLength
+        value: "50"
+      authenticationRef:
+        name: rabbitmq-auth
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: tgprobe-db-auth
+  namespace: botwatch
+spec:
+  secretTargetRef:
+    - parameter: password
+      name: botwatch-secrets
+      key: TGPROBE_DB_PASSWORD
+---
+# tg-probe: одна реплика держит до 10 аккаунтов (Telegram__MaxAccounts), значит реплик = ceil(аккаунтов / 10).
+# считаем прямо в базе пробы те аккаунты, которыми кто-то должен заниматься.
+# минимум 1: команду "добавить аккаунт" из очереди выполняет сама проба, без неё некому создать первую запись
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: tg-probe
+  namespace: botwatch
+spec:
+  scaleTargetRef:
+    name: tg-probe
+  minReplicaCount: 1
+  maxReplicaCount: 3
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+  triggers:
+    - type: postgresql
+      metadata:
+        host: postgres.botwatch.svc.cluster.local
+        port: "5432"
+        userName: tgprobe
+        dbName: tgprobe
+        sslmode: disable
+        query: "SELECT count(*) FROM accounts WHERE status IN ('PendingLogin', 'Active', 'Removing')"
+        targetQueryValue: "10"
+      authenticationRef:
+        name: tgprobe-db-auth

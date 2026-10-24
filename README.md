@@ -74,6 +74,16 @@ docker compose --profile observability up -d
 
 All of them listen on `127.0.0.1` only.
 
+## Kubernetes
+
+Plain manifests for a single-node k3s live in [deploy/k8s](deploy/k8s), applied with `kubectl apply` in numbered order:
+StatefulSets for Postgres and RabbitMQ, Deployments with startup/liveness/readiness probes, an hourly CronJob for history rollup,
+Traefik Ingress with cert-manager, default-deny NetworkPolicies and KEDA autoscaling for the probes
+(HTTP by queue length, Telegram by active accounts).
+
+KEDA and cert-manager are installed into the cluster separately; secrets come from `deploy/k8s/secrets.env`
+(see [secrets.env.example](deploy/k8s/secrets.env.example)). A Helm chart is next on the roadmap.
+
 ## Architecture
 
 ```mermaid
@@ -139,7 +149,7 @@ and publishes images to GHCR from `main`.
 
 - [x] HTTP and Telegram checks, incidents, alerts, admin UI, status page
 - [x] Stale detection, dead man's switch, history retention, OpenTelemetry
-- [ ] Kubernetes: k3s with plain manifests, StatefulSets, Ingress + cert-manager, NetworkPolicy, KEDA
+- [x] Kubernetes: k3s with plain manifests, StatefulSets, Ingress + cert-manager, NetworkPolicy, KEDA
 - [ ] Helm chart
 - [ ] **LLM-generated scenarios**: describe the bot in plain words and a model drafts checks and phrase pools
       for you to review. Generation happens when you edit a check, never on every run — runs stay deterministic,

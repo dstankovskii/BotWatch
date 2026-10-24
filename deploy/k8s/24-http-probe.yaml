@@ -1,0 +1,65 @@
+# читает задания из очереди http-probe. Service не нужен: к пробе никто не ходит, она сама берёт работу.
+# число реплик задаёт KEDA по длине очереди (50-keda.yaml), поэтому replicas здесь не указан:
+# иначе каждый kubectl apply сбрасывал бы его обратно
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: http-probe
+  namespace: botwatch
+  labels:
+    app.kubernetes.io/name: http-probe
+    app.kubernetes.io/part-of: botwatch
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: http-probe
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: http-probe
+        app.kubernetes.io/part-of: botwatch
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: http-probe
+          image: ghcr.io/OWNER/botwatch-http-probe:latest
+          envFrom:
+            - configMapRef: { name: botwatch-config }
+          env:
+            - name: RabbitMq__Username
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: RABBITMQ_USER }
+            - name: RabbitMq__Password
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: RABBITMQ_PASSWORD }
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: metrics
+              containerPort: 9464
+          startupProbe:
+            httpGet: { path: /health/live, port: http }
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: { path: /health/live, port: http }
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /health/ready, port: http }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

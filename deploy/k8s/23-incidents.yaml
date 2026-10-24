@@ -1,0 +1,167 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: incidents
+  namespace: botwatch
+  labels:
+    app.kubernetes.io/name: incidents
+    app.kubernetes.io/part-of: botwatch
+spec:
+  selector:
+    app.kubernetes.io/name: incidents
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: incidents
+  namespace: botwatch
+  labels:
+    app.kubernetes.io/name: incidents
+    app.kubernetes.io/part-of: botwatch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: incidents
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: incidents
+        app.kubernetes.io/part-of: botwatch
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: incidents
+          image: ghcr.io/OWNER/botwatch-incidents:latest
+          envFrom:
+            - configMapRef: { name: botwatch-config }
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: INCIDENTS_DB_PASSWORD }
+            - name: ConnectionStrings__Incidents
+              value: Host=postgres;Database=incidents;Username=incidents;Password=$(DB_PASSWORD)
+            - name: RabbitMq__Username
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: RABBITMQ_USER }
+            - name: RabbitMq__Password
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: RABBITMQ_PASSWORD }
+            - name: Encryption__Key
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: ENCRYPTION_KEY }
+            - name: Heartbeat__Url
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: HEARTBEAT_URL }
+            # свёртку истории делает CronJob ниже, фоновый цикл внутри сервиса не нужен
+            - name: History__RunInBackground
+              value: "false"
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: metrics
+              containerPort: 9464
+          startupProbe:
+            httpGet: { path: /health/live, port: http }
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: { path: /health/live, port: http }
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /health/ready, port: http }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 384Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+# раз в час сворачивает сырую историю проверок в дневной аптайм и удаляет старое.
+# тот же образ, что у сервиса, но с аргументом rollup-history: отработал и вышел.
+# руками: kubectl -n botwatch create job --from=cronjob/rollup-history rollup-now
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rollup-history
+  namespace: botwatch
+  labels:
+    app.kubernetes.io/name: rollup-history
+    app.kubernetes.io/part-of: botwatch
+spec:
+  schedule: "7 * * * *"
+  timeZone: Etc/UTC
+  # предыдущий запуск ещё идёт - новый не стартует
+  concurrencyPolicy: Forbid
+  # узел был выключен в момент запуска - догоняем, если опоздали не больше чем на 10 минут
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # kube-router иногда добавляет IP нового пода в разрешённые NetworkPolicy через пару секунд после старта,
+      # и первая попытка получает Connection refused от Postgres. вторая уже проходит
+      backoffLimit: 2
+      activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: rollup-history
+            app.kubernetes.io/part-of: botwatch
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile: { type: RuntimeDefault }
+          containers:
+            - name: rollup
+              image: ghcr.io/OWNER/botwatch-incidents:latest
+              args: [rollup-history]
+              envFrom:
+                - configMapRef: { name: botwatch-config }
+              env:
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef: { name: botwatch-secrets, key: INCIDENTS_DB_PASSWORD }
+                - name: ConnectionStrings__Incidents
+                  value: Host=postgres;Database=incidents;Username=incidents;Password=$(DB_PASSWORD)
+                - name: Encryption__Key
+                  valueFrom:
+                    secretKeyRef: { name: botwatch-secrets, key: ENCRYPTION_KEY }
+                - name: History__RunInBackground
+                  value: "false"
+              resources:
+                requests: { cpu: 50m, memory: 128Mi }
+                limits: { memory: 384Mi }
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: { drop: [ALL] }
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}

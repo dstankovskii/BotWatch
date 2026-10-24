@@ -1,0 +1,42 @@
+# вход снаружи: Traefik (встроен в k3s) -> gateway. сертификат выпускает cert-manager,
+# увидев аннотацию cluster-issuer, и кладёт его в Secret botwatch-tls.
+# botwatch.example.com заменить на свой домен, A-запись домена - на IP сервера
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: redirect-https
+  namespace: botwatch
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: botwatch
+  namespace: botwatch
+  labels:
+    app.kubernetes.io/name: botwatch
+    app.kubernetes.io/part-of: botwatch
+  annotations:
+    # сначала letsencrypt-staging: у боевого лимит 5 неудачных выпусков в час на домен
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+    # формат <namespace>-<имя>@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: botwatch-redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts: [botwatch.example.com]
+      secretName: botwatch-tls
+  rules:
+    - host: botwatch.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway
+                port:
+                  name: http

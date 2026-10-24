@@ -1,0 +1,86 @@
+# RabbitMQ хранит данные в каталоге с именем узла rabbit@<hostname>.
+# у пода Deployment имя случайное, и после пересоздания брокер не нашёл бы свои очереди.
+# у StatefulSet hostname всегда rabbitmq-0 - поэтому он здесь и нужен
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: botwatch
+  labels:
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/part-of: botwatch
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+    - name: management
+      port: 15672
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+  namespace: botwatch
+  labels:
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/part-of: botwatch
+spec:
+  serviceName: rabbitmq
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rabbitmq
+        app.kubernetes.io/part-of: botwatch
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:4-management-alpine
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: RABBITMQ_USER }
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef: { name: botwatch-secrets, key: RABBITMQ_PASSWORD }
+          ports:
+            - name: amqp
+              containerPort: 5672
+            - name: management
+              containerPort: 15672
+          # rabbitmq-diagnostics поднимает Erlang-VM и работает пару секунд, отсюда большие таймауты
+          readinessProbe:
+            exec:
+              command: [rabbitmq-diagnostics, -q, ping]
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 10
+          livenessProbe:
+            exec:
+              command: [rabbitmq-diagnostics, -q, ping]
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 4
+          resources:
+            requests: { cpu: 50m, memory: 192Mi }
+            limits: { memory: 512Mi }
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/rabbitmq
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 2Gi
