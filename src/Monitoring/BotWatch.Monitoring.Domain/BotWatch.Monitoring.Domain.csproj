@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks\BotWatch.Domain\BotWatch.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

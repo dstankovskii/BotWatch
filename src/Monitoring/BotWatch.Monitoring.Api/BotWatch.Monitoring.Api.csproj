@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>BotWatch.Monitoring</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- без алиаса Monitor конфликтует с System.Threading.Monitor -->
+    <Using Include="BotWatch.Monitoring.Domain.Monitor" Alias="Monitor" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BotWatch.Contracts\BotWatch.Contracts.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\BotWatch.Hosting\BotWatch.Hosting.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\BotWatch.Persistence\BotWatch.Persistence.csproj" />
+    <ProjectReference Include="..\BotWatch.Monitoring.Domain\BotWatch.Monitoring.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,103 @@
+name: botwatch
+
+x-dotnet: &dotnet
+  restart: unless-stopped
+  environment: &dotnet-env
+    RabbitMq__Host: rabbitmq
+    RabbitMq__Username: ${RABBITMQ_USER}
+    RabbitMq__Password: ${RABBITMQ_PASSWORD}
+    Seq__Url: http://seq:5341
+  depends_on: &dotnet-deps
+    postgres:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      GATEWAY_DB_PASSWORD: ${GATEWAY_DB_PASSWORD}
+      MONITORING_DB_PASSWORD: ${MONITORING_DB_PASSWORD}
+      INCIDENTS_DB_PASSWORD: ${INCIDENTS_DB_PASSWORD}
+      TGPROBE_DB_PASSWORD: ${TGPROBE_DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    ports:
+      - "127.0.0.1:15680:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  seq:
+    image: datalust/seq:2025
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_NOAUTHENTICATION: "true"
+    volumes:
+      - seq-data:/data
+    ports:
+      - "127.0.0.1:5380:80"
+
+  monitoring:
+    <<: *dotnet
+    build:
+      context: ../..
+      args:
+        PROJECT: src/Monitoring/BotWatch.Monitoring.Api
+        APP: BotWatch.Monitoring.Api
+    environment:
+      <<: *dotnet-env
+      ConnectionStrings__Monitoring: Host=postgres;Database=monitoring;Username=monitoring;Password=${MONITORING_DB_PASSWORD}
+    ports:
+      - "127.0.0.1:8081:8080"
+
+  incidents:
+    <<: *dotnet
+    build:
+      context: ../..
+      args:
+        PROJECT: src/Incidents/BotWatch.Incidents.Api
+        APP: BotWatch.Incidents.Api
+    environment:
+      <<: *dotnet-env
+      ConnectionStrings__Incidents: Host=postgres;Database=incidents;Username=incidents;Password=${INCIDENTS_DB_PASSWORD}
+      Encryption__Key: ${ENCRYPTION_KEY}
+    ports:
+      - "127.0.0.1:8082:8080"
+
+  http-probe:
+    <<: *dotnet
+    build:
+      context: ../..
+      args:
+        PROJECT: src/Probes/BotWatch.Probe.Http
+        APP: BotWatch.Probe.Http
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  rabbitmq-data:
+  seq-data:

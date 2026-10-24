@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BotWatch.Contracts\BotWatch.Contracts.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\BotWatch.Hosting\BotWatch.Hosting.csproj" />
+  </ItemGroup>
+
+</Project>

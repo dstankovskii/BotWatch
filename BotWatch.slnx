@@ -1,0 +1,27 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BotWatch.Contracts/BotWatch.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/BotWatch.Domain/BotWatch.Domain.csproj" />
+    <Project Path="src/BuildingBlocks/BotWatch.Hosting/BotWatch.Hosting.csproj" />
+    <Project Path="src/BuildingBlocks/BotWatch.Messaging/BotWatch.Messaging.csproj" />
+    <Project Path="src/BuildingBlocks/BotWatch.Persistence/BotWatch.Persistence.csproj" />
+  </Folder>
+  <Folder Name="/src/Incidents/">
+    <Project Path="src/Incidents/BotWatch.Incidents.Api/BotWatch.Incidents.Api.csproj" />
+    <Project Path="src/Incidents/BotWatch.Incidents.Domain/BotWatch.Incidents.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Monitoring/">
+    <Project Path="src/Monitoring/BotWatch.Monitoring.Api/BotWatch.Monitoring.Api.csproj" />
+    <Project Path="src/Monitoring/BotWatch.Monitoring.Domain/BotWatch.Monitoring.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Probes/">
+    <Project Path="src/Probes/BotWatch.Probe.Http/BotWatch.Probe.Http.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BotWatch.BuildingBlocks.Tests/BotWatch.BuildingBlocks.Tests.csproj" />
+    <Project Path="tests/BotWatch.Incidents.Tests/BotWatch.Incidents.Tests.csproj" />
+    <Project Path="tests/BotWatch.Monitoring.Tests/BotWatch.Monitoring.Tests.csproj" />
+  </Folder>
+</Solution>

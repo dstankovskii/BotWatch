@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\BuildingBlocks\BotWatch.Messaging\BotWatch.Messaging.csproj" />
+  </ItemGroup>
+
+</Project>
